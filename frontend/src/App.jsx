@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 
 function App() {
@@ -115,7 +115,7 @@ const [rechargeData, setRechargeData] = useState({
   // GET PLANS
   // -----------------------------
 
-  const fetchPlans = async () => {
+  const fetchPlans = useCallback(async () => {
     try {
       const response = await fetch("http://127.0.0.1:5000/plans");
 
@@ -127,11 +127,14 @@ const [rechargeData, setRechargeData] = useState({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchPlans();
-  }, []);
+    const refreshIntervalId = window.setInterval(fetchPlans, 5 * 60 * 1000);
+
+    return () => window.clearInterval(refreshIntervalId);
+  }, [fetchPlans]);
 
   useEffect(() => {
     if (!selectedRenewal) return undefined;
