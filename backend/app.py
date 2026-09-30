@@ -686,7 +686,7 @@ def delete_plan(plan_id):
 
 @app.route("/telegram/test", methods=["GET"])
 def telegram_test():
-    success = send_message(
+    success = send_telegram_message(
         "ðŸ”” Network Recharge Manager\n\nTelegram notification test successful! âœ…"
     )
 
