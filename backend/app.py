@@ -355,9 +355,13 @@ def get_reminders():
     conn = get_db_connection()
 
     reminders = conn.execute("""
-        SELECT *
+        SELECT
+            reminder_log.*,
+            plans.service,
+            plans.plan_name
         FROM reminder_log
-        ORDER BY created_at DESC
+        LEFT JOIN plans ON plans.id = reminder_log.plan_id
+        ORDER BY reminder_log.created_at DESC
     """).fetchall()
 
     conn.close()

@@ -3,6 +3,9 @@ import "./App.css";
 
 function App() {
   const [plans, setPlans] = useState([]);
+  const [reminders, setReminders] = useState([]);
+  const [remindersLoading, setRemindersLoading] = useState(true);
+  const [remindersError, setRemindersError] = useState("");
   const [searchText, setSearchText] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -129,12 +132,36 @@ const [rechargeData, setRechargeData] = useState({
     }
   }, []);
 
+  const fetchReminders = useCallback(async () => {
+    setRemindersLoading(true);
+    setRemindersError("");
+
+    try {
+      const response = await fetch("http://127.0.0.1:5000/reminders");
+      if (!response.ok) {
+        throw new Error("Failed to load reminder history");
+      }
+
+      const data = await response.json();
+      setReminders(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Reminder history error:", error);
+      setRemindersError("Unable to load reminder history.");
+    } finally {
+      setRemindersLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchPlans();
     const refreshIntervalId = window.setInterval(fetchPlans, 5 * 60 * 1000);
 
     return () => window.clearInterval(refreshIntervalId);
   }, [fetchPlans]);
+
+  useEffect(() => {
+    fetchReminders();
+  }, [fetchReminders]);
 
   useEffect(() => {
     if (!selectedRenewal) return undefined;
@@ -976,6 +1003,61 @@ const openHistory = async (plan) => {
 
           )}
 
+        </section>
+
+        <section className="reminder-history-section" aria-labelledby="reminder-history-title">
+          <div className="section-header reminder-history-header">
+            <h2 id="reminder-history-title">Reminder History</h2>
+            <button
+              type="button"
+              className="refresh-reminders-button"
+              onClick={fetchReminders}
+              disabled={remindersLoading}
+            >
+              {remindersLoading ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+
+          {remindersLoading ? (
+            <p className="message">Loading reminder history...</p>
+          ) : remindersError ? (
+            <p className="message">{remindersError}</p>
+          ) : reminders.length === 0 ? (
+            <p className="message">No reminder history found.</p>
+          ) : (
+            <div className="history-table-container reminder-history-table-container">
+              <table className="history-table reminder-history-table">
+                <thead>
+                  <tr>
+                    <th>Service</th>
+                    <th>Plan Name</th>
+                    <th>Reminder Type</th>
+                    <th>Expiry Date</th>
+                    <th>Created At</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reminders.map((reminder) => (
+                    <tr key={reminder.id}>
+                      <td>{reminder.service || "—"}</td>
+                      <td>{reminder.plan_name || "—"}</td>
+                      <td>
+                        <span className={`reminder-type reminder-type-${String(reminder.reminder_type || "").toLowerCase().replaceAll("_", "-")}`}>
+                          {String(reminder.reminder_type || "").replaceAll("_", " ")}
+                        </span>
+                      </td>
+                      <td>{reminder.expiry_date || "—"}</td>
+                      <td>
+                        {reminder.created_at
+                          ? new Date(reminder.created_at).toLocaleString()
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
       </main>

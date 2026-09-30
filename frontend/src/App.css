@@ -465,6 +465,77 @@ body {
   background: #f8fafc;
 }
 
+.reminder-history-section {
+  margin-top: 36px;
+  padding: 24px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+.reminder-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.refresh-reminders-button {
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #111827;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.refresh-reminders-button:hover:not(:disabled) {
+  background: #374151;
+}
+
+.refresh-reminders-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.reminder-history-table {
+  min-width: 720px;
+}
+
+.reminder-type {
+  display: inline-block;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.reminder-type-7-days { background: #dbeafe; color: #1e40af; }
+.reminder-type-3-days { background: #fef3c7; color: #92400e; }
+.reminder-type-due-today { background: #ffedd5; color: #9a3412; }
+.reminder-type-expired { background: #fee2e2; color: #b91c1c; }
+.reminder-type-expiry-missing { background: #fef9c3; color: #854d0e; }
+
+@media (max-width: 650px) {
+  .reminder-history-section {
+    padding: 18px;
+  }
+
+  .reminder-history-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .refresh-reminders-button {
+    width: 100%;
+  }
+}
+
 .history-button {
   background: #e5e7eb;
   color: #111827;
