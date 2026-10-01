@@ -815,6 +815,106 @@ body {
   opacity: 0.65;
 }
 
+.restore-database-button {
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 1px solid #b45309;
+  border-radius: 8px;
+  background: #b45309;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.restore-database-button:hover:not(:disabled) {
+  background: #92400e;
+}
+
+.restore-database-button:disabled,
+.restore-confirm-button:disabled,
+.restore-cancel-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.restore-confirmation {
+  margin: 0 0 20px;
+  padding: 20px;
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+  background: #fffbeb;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+}
+
+.restore-confirmation h3 {
+  margin: 0 0 10px;
+  color: #78350f;
+}
+
+.restore-selected-file,
+.restore-warning {
+  margin: 8px 0;
+  color: #374151;
+  overflow-wrap: anywhere;
+}
+
+.restore-warning {
+  font-weight: 600;
+}
+
+.restore-confirmation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.restore-confirm-button,
+.restore-cancel-button {
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.restore-confirm-button {
+  background: #b91c1c;
+  color: white;
+}
+
+.restore-confirm-button:hover:not(:disabled) {
+  background: #991b1b;
+}
+
+.restore-cancel-button {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.restore-cancel-button:hover:not(:disabled) {
+  background: #d1d5db;
+}
+
+.restore-success,
+.restore-error {
+  margin: 0 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.restore-success {
+  color: #166534;
+}
+
+.restore-error {
+  color: #b91c1c;
+}
+
 .backup-database-message,
 .backup-database-error {
   flex-basis: 100%;
@@ -1596,6 +1696,18 @@ body {
 
   .plan-import-section {
     padding: 18px;
+  }
+
+  .restore-confirmation {
+    padding: 16px;
+  }
+
+  .restore-confirmation-actions {
+    flex-direction: column;
+  }
+
+  .restore-confirmation-actions button {
+    width: 100%;
   }
 
   .plan-import-header {

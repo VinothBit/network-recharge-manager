@@ -4,3 +4,4 @@ venv/
 __pycache__/
 *.pyc
 backend/recharge_manager.db
+backend/recharge_manager_pre_restore_*.db

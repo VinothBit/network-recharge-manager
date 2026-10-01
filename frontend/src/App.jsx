@@ -118,7 +118,12 @@ function App() {
   const [backupMessage, setBackupMessage] = useState("");
   const [backupError, setBackupError] = useState("");
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [restoreFile, setRestoreFile] = useState(null);
+  const [restoreMessage, setRestoreMessage] = useState("");
+  const [restoreError, setRestoreError] = useState("");
+  const [isRestoring, setIsRestoring] = useState(false);
   const importFileInputRef = useRef(null);
+  const restoreFileInputRef = useRef(null);
 
   const [rechargePlan, setRechargePlan] = useState(null);
 
@@ -605,6 +610,60 @@ const [rechargeData, setRechargeData] = useState({
       setBackupError(error.message || "Unable to download database backup.");
     } finally {
       setIsBackingUp(false);
+    }
+  };
+
+  const handleRestoreFileSelection = (event) => {
+    const selectedFile = event.target.files?.[0] || null;
+    setRestoreMessage("");
+    setRestoreError("");
+
+    if (selectedFile && !selectedFile.name.toLowerCase().endsWith(".db")) {
+      setRestoreFile(null);
+      setRestoreError("Please select a .db backup file.");
+      event.target.value = "";
+      return;
+    }
+
+    setRestoreFile(selectedFile);
+  };
+
+  const cancelDatabaseRestore = () => {
+    setRestoreFile(null);
+    setRestoreError("");
+    if (restoreFileInputRef.current) restoreFileInputRef.current.value = "";
+  };
+
+  const confirmDatabaseRestore = async () => {
+    if (!restoreFile || isRestoring) return;
+
+    setRestoreMessage("");
+    setRestoreError("");
+    setIsRestoring(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("database", restoreFile);
+      const response = await fetch("http://127.0.0.1:5000/restore/database", {
+        method: "POST",
+        body: formData,
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Database restore failed.");
+      }
+
+      await Promise.all([fetchPlans(), fetchReminders()]);
+      setRestoreFile(null);
+      setRestoreMessage(
+        "Database restored successfully. A safety backup of the previous database was created."
+      );
+      if (restoreFileInputRef.current) restoreFileInputRef.current.value = "";
+    } catch (error) {
+      console.error("Database restore error:", error);
+      setRestoreError(error.message || "Database restore failed.");
+    } finally {
+      setIsRestoring(false);
     }
   };
 
@@ -1643,6 +1702,21 @@ const closePlanDetails = () => {
             >
               {isBackingUp ? "Preparing Backup..." : "Backup Database"}
             </button>
+            <button
+              type="button"
+              className="restore-database-button"
+              onClick={() => restoreFileInputRef.current?.click()}
+              disabled={isRestoring}
+            >
+              Restore Database
+            </button>
+            <input
+              ref={restoreFileInputRef}
+              className="import-plans-file-input"
+              type="file"
+              accept=".db"
+              onChange={handleRestoreFileSelection}
+            />
             <input
               ref={importFileInputRef}
               className="import-plans-file-input"
@@ -1666,6 +1740,37 @@ const closePlanDetails = () => {
           </div>
         </section>
 
+        {restoreFile && (
+          <section className="restore-confirmation" aria-labelledby="restore-confirmation-title">
+            <h3 id="restore-confirmation-title">Confirm Database Restore</h3>
+            <p className="restore-selected-file">Selected file: <strong>{restoreFile.name}</strong></p>
+            <p className="restore-warning">
+              Restoring a database will replace the current application data.
+              A safety backup of the current database will be created first.
+            </p>
+            {restoreError && <p className="restore-error" role="alert">{restoreError}</p>}
+            <div className="restore-confirmation-actions">
+              <button
+                type="button"
+                className="restore-confirm-button"
+                onClick={confirmDatabaseRestore}
+                disabled={isRestoring}
+              >
+                {isRestoring ? "Restoring..." : "Confirm Restore"}
+              </button>
+              <button
+                type="button"
+                className="restore-cancel-button"
+                onClick={cancelDatabaseRestore}
+                disabled={isRestoring}
+              >
+                Cancel
+              </button>
+            </div>
+          </section>
+        )}
+        {restoreMessage && <p className="restore-success" role="status">{restoreMessage}</p>}
+        {!restoreFile && restoreError && <p className="restore-error" role="alert">{restoreError}</p>}
         {importMessage && <p className="plan-import-message">{importMessage}</p>}
 
         {showImportPreview && (

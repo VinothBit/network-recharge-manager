@@ -1,10 +1,15 @@
 ﻿from flask import Flask, jsonify, request, send_file
+import sqlite3
+import tempfile
+import threading
+from pathlib import Path
 from datetime import date, datetime
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.base import STATE_RUNNING
 
 from database import DATABASE, init_db, get_db_connection
 
@@ -41,6 +46,73 @@ def send_telegram_message(message):
         return False
 app = Flask(__name__)
 CORS(app)
+
+DATABASE_OPERATION_LOCK = threading.RLock()
+REQUIRED_DATABASE_TABLES = {"plans", "recharge_history", "reminder_log"}
+scheduler = None
+
+
+@app.before_request
+def lock_database_operations():
+    DATABASE_OPERATION_LOCK.acquire()
+
+
+@app.teardown_request
+def unlock_database_operations(error=None):
+    DATABASE_OPERATION_LOCK.release()
+
+
+def validate_restore_database(database_path):
+    connection = sqlite3.connect(str(database_path))
+    try:
+        connection.execute("PRAGMA query_only = ON")
+        integrity_results = connection.execute("PRAGMA integrity_check").fetchall()
+        if integrity_results != [("ok",)]:
+            raise ValueError("SQLite integrity check failed.")
+
+        existing_tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+        }
+        missing_tables = REQUIRED_DATABASE_TABLES - existing_tables
+        if missing_tables:
+            raise ValueError(
+                "Database is missing required tables: "
+                + ", ".join(sorted(missing_tables))
+            )
+    except sqlite3.DatabaseError as error:
+        raise ValueError("Uploaded file is not a valid SQLite database.") from error
+    finally:
+        connection.close()
+
+
+def create_database_safety_backup():
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = DATABASE.parent / f"recharge_manager_pre_restore_{timestamp}.db"
+    suffix = 1
+    while backup_path.exists():
+        backup_path = DATABASE.parent / (
+            f"recharge_manager_pre_restore_{timestamp}_{suffix}.db"
+        )
+        suffix += 1
+
+    source = sqlite3.connect(str(DATABASE))
+    destination = sqlite3.connect(str(backup_path))
+    try:
+        source.backup(destination)
+    except Exception:
+        destination.close()
+        source.close()
+        backup_path.unlink(missing_ok=True)
+        raise
+    else:
+        destination.close()
+        source.close()
+
+    validate_restore_database(backup_path)
+    return backup_path
 
 # Initialize database
 init_db()
@@ -325,6 +397,11 @@ def check_expiry_reminders():
         print(
             f"\nTotal reminders detected: {reminders_found}"
         )
+def run_scheduled_expiry_reminders():
+    with DATABASE_OPERATION_LOCK:
+        check_expiry_reminders()
+
+
 # --------------------------------
 # HOME
 # --------------------------------
@@ -370,6 +447,103 @@ def get_reminders():
         dict(reminder)
         for reminder in reminders
     ])
+
+
+@app.route("/restore/database", methods=["POST"])
+def restore_database():
+    uploaded_file = request.files.get("database")
+    if uploaded_file is None or not uploaded_file.filename:
+        return jsonify({"success": False, "error": "Select a database backup file."}), 400
+
+    if not uploaded_file.filename.lower().endswith(".db"):
+        return jsonify({"success": False, "error": "Only .db backup files are accepted."}), 400
+
+    temporary_path = None
+    recovery_path = None
+    safety_backup_path = None
+    scheduler_was_running = scheduler is not None and scheduler.state == STATE_RUNNING
+    scheduler_paused = False
+
+    try:
+        with tempfile.NamedTemporaryFile(
+            prefix=".restore_upload_",
+            suffix=".db",
+            dir=str(DATABASE.parent),
+            delete=False
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+
+        uploaded_file.save(str(temporary_path))
+        if temporary_path.stat().st_size == 0:
+            return jsonify({"success": False, "error": "The uploaded backup file is empty."}), 400
+
+        try:
+            validate_restore_database(temporary_path)
+        except ValueError as error:
+            return jsonify({"success": False, "error": str(error)}), 400
+
+        if scheduler_was_running:
+            scheduler.pause()
+            scheduler_paused = True
+
+        # The request lock and scheduled-job lock ensure no database work is active here.
+        safety_backup_path = create_database_safety_backup()
+        os.replace(str(temporary_path), str(DATABASE))
+        temporary_path = None
+
+        try:
+            validate_restore_database(DATABASE)
+        except ValueError as error:
+            with tempfile.NamedTemporaryFile(
+                prefix=".restore_recovery_",
+                suffix=".db",
+                dir=str(DATABASE.parent),
+                delete=False
+            ) as recovery_file:
+                recovery_path = Path(recovery_file.name)
+
+            safety_connection = sqlite3.connect(str(safety_backup_path))
+            recovery_connection = sqlite3.connect(str(recovery_path))
+            try:
+                safety_connection.backup(recovery_connection)
+            finally:
+                recovery_connection.close()
+                safety_connection.close()
+
+            os.replace(str(recovery_path), str(DATABASE))
+            recovery_path = None
+            return jsonify({
+                "success": False,
+                "error": f"Restored database verification failed; the previous database was recovered. {error}"
+            }), 500
+
+        return jsonify({
+            "success": True,
+            "message": "Database restored successfully.",
+            "safety_backup_filename": safety_backup_path.name
+        })
+    except Exception as error:
+        app.logger.exception("Database restore failed")
+        return jsonify({
+            "success": False,
+            "error": f"Database restore failed: {error}"
+        }), 500
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                app.logger.exception("Could not remove temporary restore upload")
+        if recovery_path is not None:
+            try:
+                recovery_path.unlink(missing_ok=True)
+            except OSError:
+                app.logger.exception("Could not remove temporary restore recovery file")
+        if scheduler_paused:
+            try:
+                scheduler.resume()
+            except Exception:
+                app.logger.exception("Could not resume reminder scheduler after restore")
 
 
 @app.route("/backup/database", methods=["GET"])
@@ -728,7 +902,7 @@ if __name__ == "__main__":
     )
 
     scheduler.add_job(
-        check_expiry_reminders,
+        run_scheduled_expiry_reminders,
         "cron",
         hour=9,
         minute=0,
