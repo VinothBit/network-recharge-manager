@@ -156,6 +156,49 @@ const [rechargeData, setRechargeData] = useState({
     window.setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 0);
   };
 
+  const exportPlansCsv = () => {
+    if (filteredPlans.length === 0) return;
+
+    const csvValue = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const rows = [
+      [
+        "Service",
+        "Plan Name",
+        "Category",
+        "Recharge Date",
+        "Expiry Date",
+        "Frequency",
+        "Amount",
+        "Status",
+        "Days Remaining",
+        "Notes",
+      ],
+      ...filteredPlans.map((plan) => [
+        plan.service,
+        plan.plan_name,
+        plan.category,
+        plan.recharge_date,
+        plan.expiry_date,
+        plan.frequency,
+        plan.amount,
+        plan.status,
+        plan.days_remaining,
+        plan.notes,
+      ]),
+    ];
+    const csvContent = `\uFEFF${rows.map((row) => row.map(csvValue).join(",")).join("\r\n")}`;
+    const file = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const downloadUrl = window.URL.createObjectURL(file);
+    const link = document.createElement("a");
+
+    link.href = downloadUrl;
+    link.download = "plans.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 0);
+  };
+
   const revealRenewalPlan = (plan) => {
     setSearchText("");
     setServiceFilter(plan.service || "");
@@ -901,9 +944,22 @@ const openHistory = async (plan) => {
             </select>
           </div>
 
-          <button type="button" className="clear-filters-button" onClick={clearFilters}>
-            Clear Filters
-          </button>
+          <div className="plan-filter-actions">
+            <button type="button" className="clear-filters-button" onClick={clearFilters}>
+              Clear Filters
+            </button>
+            <button
+              type="button"
+              className="export-plans-button"
+              onClick={exportPlansCsv}
+              disabled={loading || filteredPlans.length === 0}
+            >
+              Export Plans CSV
+            </button>
+            {!loading && filteredPlans.length === 0 && (
+              <small className="export-plans-empty">No plans to export.</small>
+            )}
+          </div>
         </section>
 
         <section className="plans-section" id="all-plans-section">

@@ -720,6 +720,41 @@ body {
   background: #d1d5db;
 }
 
+.plan-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-plans-button {
+  min-height: 42px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #111827;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.export-plans-button:hover:not(:disabled) {
+  background: #374151;
+}
+
+.export-plans-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.export-plans-empty {
+  flex-basis: 100%;
+  color: #64748b;
+  font-size: 12px;
+}
+
 .plans-section .section-header {
   display: flex;
   justify-content: space-between;
@@ -949,6 +984,15 @@ body {
   .filters-section {
     grid-template-columns: 1fr;
     padding: 18px;
+  }
+
+  .plan-filter-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .plan-filter-actions button {
+    width: 100%;
   }
 
   .plans-section .section-header {
