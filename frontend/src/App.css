@@ -480,6 +480,12 @@ body {
   gap: 16px;
 }
 
+.reminder-history-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .refresh-reminders-button {
   padding: 10px 16px;
   border: 0;
@@ -498,6 +504,12 @@ body {
 .refresh-reminders-button:disabled {
   cursor: wait;
   opacity: 0.65;
+}
+
+.export-empty-message {
+  margin: -8px 0 16px;
+  color: #64748b;
+  font-size: 13px;
 }
 
 .reminder-filters {
@@ -571,6 +583,11 @@ body {
 
   .reminder-history-header {
     align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .reminder-history-actions {
+    width: 100%;
     flex-direction: column;
   }
 

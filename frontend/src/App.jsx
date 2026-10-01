@@ -129,6 +129,33 @@ const [rechargeData, setRechargeData] = useState({
     setReminderSearchText("");
   };
 
+  const exportReminderHistory = () => {
+    if (filteredReminders.length === 0) return;
+
+    const csvValue = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const rows = [
+      ["Service", "Plan Name", "Reminder Type", "Expiry Date", "Created At"],
+      ...filteredReminders.map((reminder) => [
+        reminder.service,
+        reminder.plan_name,
+        reminder.reminder_type,
+        reminder.expiry_date,
+        reminder.created_at,
+      ]),
+    ];
+    const csvContent = `\uFEFF${rows.map((row) => row.map(csvValue).join(",")).join("\r\n")}`;
+    const file = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const downloadUrl = window.URL.createObjectURL(file);
+    const link = document.createElement("a");
+
+    link.href = downloadUrl;
+    link.download = "reminder_history.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 0);
+  };
+
   const revealRenewalPlan = (plan) => {
     setSearchText("");
     setServiceFilter(plan.service || "");
@@ -1030,14 +1057,24 @@ const openHistory = async (plan) => {
         <section className="reminder-history-section" aria-labelledby="reminder-history-title">
           <div className="section-header reminder-history-header">
             <h2 id="reminder-history-title">Reminder History</h2>
-            <button
-              type="button"
-              className="refresh-reminders-button"
-              onClick={fetchReminders}
-              disabled={remindersLoading}
-            >
-              {remindersLoading ? "Refreshing..." : "Refresh"}
-            </button>
+            <div className="reminder-history-actions">
+              <button
+                type="button"
+                className="refresh-reminders-button"
+                onClick={fetchReminders}
+                disabled={remindersLoading}
+              >
+                {remindersLoading ? "Refreshing..." : "Refresh"}
+              </button>
+              <button
+                type="button"
+                className="refresh-reminders-button export-reminders-button"
+                onClick={exportReminderHistory}
+                disabled={remindersLoading || filteredReminders.length === 0}
+              >
+                Export CSV
+              </button>
+            </div>
           </div>
 
           <div className="reminder-filters" aria-label="Filter reminder history">
@@ -1090,6 +1127,10 @@ const openHistory = async (plan) => {
               Clear Filters
             </button>
           </div>
+
+          {!remindersLoading && !remindersError && filteredReminders.length === 0 && (
+            <p className="export-empty-message">No reminder records to export.</p>
+          )}
 
           {remindersLoading ? (
             <p className="message">Loading reminder history...</p>
