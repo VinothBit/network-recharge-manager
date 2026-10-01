@@ -1907,3 +1907,514 @@ body {
     width: 100%;
   }
 }
+
+/* Cohesive visual refinements */
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  color: #1e293b;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: #f1f5f9;
+  color: #1e293b;
+  line-height: 1.5;
+}
+
+.header {
+  min-height: 94px;
+  padding: 18px max(24px, calc((100vw - 1320px) / 2));
+  background: #fff;
+  color: #0f172a;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.header h1 {
+  font-size: clamp(22px, 2.2vw, 27px);
+  letter-spacing: -0.025em;
+}
+
+.header p {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.add-button {
+  min-height: 42px;
+  padding: 10px 16px;
+  background: #2563eb;
+  color: #fff;
+}
+
+.add-button:hover {
+  background: #1d4ed8;
+}
+
+.container {
+  max-width: 1400px;
+  padding: 28px clamp(18px, 3vw, 40px) 48px;
+}
+
+.summary {
+  gap: 14px;
+  margin-bottom: 26px;
+}
+
+.summary-card,
+.form-section,
+.quick-actions-section,
+.notifications-section,
+.calendar-section,
+.reminder-history-section,
+.plan-details-view,
+.plan-import-section,
+.plan-import-preview,
+.filters-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.045);
+}
+
+.summary-card {
+  min-height: 116px;
+  padding: 17px 18px;
+}
+
+.summary-card h3 {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.summary-card p {
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.section-header h2,
+.calendar-section-header h2 {
+  color: #0f172a;
+  font-size: 21px;
+  letter-spacing: -0.015em;
+}
+
+.quick-actions-section,
+.notifications-section,
+.calendar-section,
+.reminder-history-section,
+.filters-section {
+  padding: 20px;
+  background: #fff;
+}
+
+.quick-actions-section h2 {
+  margin-bottom: 13px;
+  font-size: 18px;
+}
+
+.quick-actions-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.quick-action-button,
+.add-button,
+.save-button,
+.recharge-button,
+.history-button,
+.edit-button,
+.delete-button,
+.cancel-button,
+.clear-filters-button,
+.export-plans-button,
+.import-plans-button,
+.backup-database-button,
+.restore-database-button,
+.refresh-reminders-button,
+.renewal-open-details,
+.restore-confirm-button,
+.restore-cancel-button,
+.import-confirm-button {
+  min-height: 40px;
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.quick-action-button {
+  padding: 9px 12px;
+  transition: filter 0.15s ease;
+}
+
+.quick-action-button:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.plan-card,
+.service-summary-card,
+.expense-summary-card,
+.renewal-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.04);
+}
+
+.plan-card {
+  padding: 20px;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.plan-card:hover,
+.service-summary-card:hover,
+.renewal-card:hover {
+  transform: none;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.07);
+}
+
+.plan-header h3 {
+  color: #0f172a;
+  font-size: 18px;
+}
+
+.plan-header p,
+.renewal-card-header p {
+  color: #64748b;
+}
+
+.plan-details {
+  gap: 14px 18px;
+}
+
+.plan-details > div,
+.plan-information-grid > div {
+  min-width: 0;
+}
+
+.plan-details strong,
+.plan-information-grid strong {
+  overflow-wrap: anywhere;
+}
+
+.plan-details-view {
+  padding: 22px;
+}
+
+.plan-information-grid {
+  gap: 12px;
+}
+
+.plan-information-grid > div:not(.plan-information-notes) {
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.plan-information-notes {
+  padding: 14px;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.filters-section {
+  gap: 13px;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.035);
+}
+
+.search-field input,
+.filter-field select,
+.reminder-filter-field select,
+.reminder-filter-field input,
+.form-group input,
+.form-group select,
+.form-group textarea {
+  min-height: 40px;
+  border-color: #cbd5e1;
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.search-field input:focus,
+.filter-field select:focus,
+.reminder-filter-field select:focus,
+.reminder-filter-field input:focus,
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: 3px solid rgba(37, 99, 235, 0.15);
+  border-color: #2563eb;
+}
+
+.form-section,
+.plan-import-section {
+  padding: 22px;
+  background: #fff;
+}
+
+.form-grid {
+  gap: 16px;
+}
+
+.form-group label,
+.search-field label,
+.filter-field label,
+.reminder-filter-field label {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.save-button,
+.recharge-button {
+  padding: 10px 16px;
+}
+
+.plan-actions {
+  gap: 8px;
+}
+
+.history-table-container,
+.reminder-history-table-container {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.history-table {
+  margin: 0;
+}
+
+.history-table th,
+.history-table td {
+  padding: 11px 13px;
+}
+
+.history-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.history-table td {
+  font-size: 13px;
+}
+
+.calendar-section {
+  padding: 20px;
+}
+
+.calendar-section-header h2 {
+  font-size: 21px;
+}
+
+.calendar-day {
+  min-height: 116px;
+}
+
+.calendar-event {
+  border-radius: 4px;
+}
+
+.notification-card {
+  border-radius: 9px;
+  box-shadow: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.notification-card:hover {
+  transform: none;
+  background: #f8fafc;
+  box-shadow: none;
+}
+
+.service-summary-card,
+.expense-summary-card,
+.renewal-card {
+  padding: 17px;
+}
+
+.renewal-card-header {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 900px) {
+  .header {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+
+  .container {
+    padding-top: 22px;
+  }
+}
+
+@media (max-width: 650px) {
+  .header {
+    align-items: stretch;
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .header > div,
+  .header > button {
+    width: 100%;
+  }
+
+  .container {
+    padding: 16px 14px 32px;
+  }
+
+  .summary {
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .summary-card {
+    min-height: 94px;
+    padding: 14px;
+  }
+
+  .summary-card h3 {
+    min-height: 0;
+    margin-bottom: 5px;
+  }
+
+  .summary-card p {
+    font-size: 25px;
+  }
+
+  .quick-actions-section,
+  .notifications-section,
+  .calendar-section,
+  .reminder-history-section,
+  .filters-section,
+  .form-section,
+  .plan-details-view {
+    padding: 16px;
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quick-action-button {
+    min-width: 0;
+    padding: 9px 8px;
+    font-size: 12px;
+  }
+
+  .plans-grid {
+    gap: 12px;
+  }
+
+  .plan-card {
+    padding: 16px;
+  }
+
+  .plan-header {
+    gap: 8px;
+    margin-bottom: 15px;
+  }
+
+  .plan-header h3 {
+    font-size: 17px;
+  }
+
+  .status {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .calendar-day {
+    min-height: 100px;
+  }
+}
+
+/* Quick Actions: neutral admin controls with one primary action */
+.quick-actions-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  align-items: stretch;
+  gap: 10px;
+}
+
+.quick-actions-section h2 {
+  margin-bottom: 14px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.quick-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 9px 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease, transform 0.15s ease;
+}
+
+.quick-action-button:not(.quick-action-add):hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #94a3b8;
+  background: #f8fafc;
+  color: #0f172a;
+  filter: none;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.quick-action-add {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.quick-action-add:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  color: #fff;
+  filter: none;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.18);
+}
+
+.quick-action-button:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.2);
+  outline-offset: 2px;
+}
+
+.quick-action-button:disabled {
+  transform: none;
+  box-shadow: none;
+}
+
+@media (max-width: 650px) {
+  .quick-actions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quick-action-button {
+    width: 100%;
+    min-width: 0;
+    padding: 9px 8px;
+    font-size: 13px;
+  }
+}

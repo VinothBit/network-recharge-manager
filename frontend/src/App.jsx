@@ -1025,7 +1025,7 @@ const openAddPlanFromQuickActions = () => {
 
       <header className="header">
         <div>
-          <h1>Network Recharge Manager</h1>
+          <h1>RLEMS</h1>
           <p>Recharge & License Expiry Management System</p>
         </div>
 
