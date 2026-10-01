@@ -219,6 +219,15 @@ body {
   box-shadow: 0 6px 15px rgba(0, 0, 0, 0.12);
 }
 
+.plan-card[role="button"] {
+  cursor: pointer;
+}
+
+.plan-card[role="button"]:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
+}
+
 /* =========================
    PLAN HEADER
 ========================= */
@@ -863,6 +872,49 @@ body {
   font-weight: bold;
 }
 
+.expense-summary-section {
+  margin: 0 0 32px;
+}
+
+.expense-summary-section .section-header {
+  margin-bottom: 16px;
+}
+
+.expense-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+}
+
+.expense-summary-card {
+  min-width: 0;
+  padding: 20px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-top: 4px solid #0f766e;
+  border-radius: 12px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+}
+
+.expense-summary-card h3 {
+  margin: 0 0 10px;
+  color: #111827;
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+
+.expense-summary-card p {
+  margin: 0 0 12px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.expense-summary-card strong {
+  color: #0f766e;
+  font-size: 22px;
+}
+
 .renewals-section {
   margin-bottom: 32px;
 }
@@ -875,6 +927,13 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 16px;
+}
+
+.renewal-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
 }
 
 .renewal-card {
@@ -931,6 +990,111 @@ body {
   margin: 0 0 5px;
   color: #111827;
   font-size: 17px;
+}
+
+.renewal-open-details {
+  align-self: flex-end;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: #dbeafe;
+  color: #1e40af;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.renewal-open-details:hover {
+  background: #bfdbfe;
+}
+
+.plan-details-view {
+  margin-bottom: 28px;
+  padding: 25px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+  scroll-margin-top: 20px;
+}
+
+.plan-details-view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.plan-details-eyebrow {
+  margin: 0 0 6px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.plan-details-view-header h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 25px;
+}
+
+.plan-information-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.plan-information-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.plan-information-grid > div > span:first-child {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.plan-information-grid strong {
+  color: #111827;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.plan-information-notes {
+  grid-column: 1 / -1;
+}
+
+.plan-details-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.plan-details-actions .recharge-button,
+.plan-details-actions .edit-button,
+.plan-details-actions .delete-button {
+  margin: 0;
+}
+
+.plan-history-section {
+  margin-top: 24px;
+}
+
+.plan-history-section h3 {
+  margin: 0 0 14px;
+  color: #111827;
+  font-size: 19px;
+}
+
+.plan-history-section .message {
+  padding: 18px;
 }
 
 .renewal-card-header p {
@@ -998,5 +1162,30 @@ body {
   .plans-section .section-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .plan-details-view {
+    padding: 18px;
+  }
+
+  .plan-details-view-header {
+    flex-direction: column;
+  }
+
+  .plan-information-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .plan-information-notes {
+    grid-column: auto;
+  }
+
+  .plan-details-actions {
+    flex-direction: column;
+  }
+
+  .plan-details-actions button,
+  .plan-details-view-header > button {
+    width: 100%;
   }
 }

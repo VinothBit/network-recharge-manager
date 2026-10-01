@@ -13,6 +13,7 @@ function App() {
   const [serviceFilter, setServiceFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedRenewal, setSelectedRenewal] = useState(null);
+  const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editPlan, setEditPlan] = useState(null);
@@ -21,6 +22,7 @@ function App() {
 
   const [historyPlan, setHistoryPlan] = useState(null);
 const [rechargeHistory, setRechargeHistory] = useState([]);
+const [rechargeHistoryLoading, setRechargeHistoryLoading] = useState(false);
 
 const [rechargeData, setRechargeData] = useState({
   recharge_date: "",
@@ -62,6 +64,10 @@ const [rechargeData, setRechargeData] = useState({
 
     return matchesSearch && matchesService && matchesStatus;
   });
+  const selectedPlan = plans.find((plan) => plan.id === selectedPlanId) || null;
+  const selectedPlanReminders = reminders.filter(
+    (reminder) => String(reminder.plan_id) === String(selectedPlanId)
+  );
 
   const planStats = [
     { label: "Total Plans", status: null, className: "stat-total" },
@@ -82,6 +88,39 @@ const [rechargeData, setRechargeData] = useState({
       return counts;
     }, {})
   );
+
+  const serviceExpenseStats = Object.entries(
+    plans.reduce((totals, plan) => {
+      const service = String(plan.service || "").trim();
+      if (!service) return totals;
+
+      if (!totals[service]) {
+        totals[service] = { planCount: 0, totalAmount: 0 };
+      }
+
+      totals[service].planCount += 1;
+
+      const rawAmount = plan.amount;
+      const numericAmount = typeof rawAmount === "number"
+        ? rawAmount
+        : typeof rawAmount === "string" && rawAmount.trim() !== ""
+        ? Number(rawAmount)
+        : 0;
+
+      if (Number.isFinite(numericAmount)) {
+        totals[service].totalAmount += numericAmount;
+      }
+
+      return totals;
+    }, {})
+  );
+
+  const formatCurrency = (amount) => new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
 
   const attentionStatuses = new Set([
     "UPCOMING",
@@ -277,6 +316,19 @@ const [rechargeData, setRechargeData] = useState({
     };
   }, [selectedRenewal]);
 
+  useEffect(() => {
+    if (selectedPlanId === null) return undefined;
+
+    const frameId = window.requestAnimationFrame(() => {
+      document.getElementById("plan-details-view")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [selectedPlanId]);
+
   // -----------------------------
   // HANDLE INPUT
   // -----------------------------
@@ -391,6 +443,10 @@ const handleDelete = async (plan) => {
 
     alert("Plan deleted successfully!");
 
+    if (String(selectedPlanId) === String(plan.id)) {
+      closePlanDetails();
+    }
+
     fetchPlans();
 
   } catch (error) {
@@ -458,7 +514,8 @@ const handleRechargeSubmit = async (event) => {
     alert("Cannot connect to backend");
   }
 };
-const openHistory = async (plan) => {
+const loadRechargeHistory = async (plan) => {
+  setRechargeHistoryLoading(true);
   try {
     const response = await fetch(
       `http://127.0.0.1:5000/plans/${plan.id}/history`
@@ -468,16 +525,44 @@ const openHistory = async (plan) => {
 
     if (!response.ok) {
       alert(data.error || "Failed to load recharge history");
-      return;
+      return null;
     }
 
-    setHistoryPlan(plan);
-    setRechargeHistory(data);
+    return data;
 
   } catch (error) {
     console.error("History error:", error);
     alert("Cannot connect to backend");
+    return null;
+  } finally {
+    setRechargeHistoryLoading(false);
   }
+};
+
+const openHistory = async (plan) => {
+  const data = await loadRechargeHistory(plan);
+  if (data === null) return;
+
+  setSelectedPlanId(null);
+  setHistoryPlan(plan);
+  setRechargeHistory(data);
+};
+
+const openPlanDetails = async (plan) => {
+  setHistoryPlan(null);
+  setRechargeHistory([]);
+  setSelectedPlanId(plan.id);
+
+  const data = await loadRechargeHistory(plan);
+  if (data !== null) {
+    setRechargeHistory(data);
+  }
+};
+
+const closePlanDetails = () => {
+  setSelectedPlanId(null);
+  setHistoryPlan(null);
+  setRechargeHistory([]);
 };
 
   return (
@@ -501,7 +586,7 @@ const openHistory = async (plan) => {
 
 
       <main className="container">
-        {historyPlan && (
+        {historyPlan && !selectedPlan && (
   <section className="form-section">
 
     <div className="section-header">
@@ -576,6 +661,105 @@ const openHistory = async (plan) => {
 
   </section>
 )}
+
+        {selectedPlan && (
+          <section className="plan-details-view" id="plan-details-view" aria-labelledby="plan-details-title">
+            <div className="plan-details-view-header">
+              <div>
+                <p className="plan-details-eyebrow">Plan Details</p>
+                <h2 id="plan-details-title">{selectedPlan.plan_name}</h2>
+              </div>
+              <button type="button" className="cancel-button" onClick={closePlanDetails}>
+                Close / Back to Plans
+              </button>
+            </div>
+
+            <div className="plan-information-grid">
+              <div><span>Service</span><strong>{selectedPlan.service || "—"}</strong></div>
+              <div><span>Plan Name</span><strong>{selectedPlan.plan_name || "—"}</strong></div>
+              <div><span>Category</span><strong>{selectedPlan.category || "—"}</strong></div>
+              <div><span>Recharge Date</span><strong>{selectedPlan.recharge_date || "—"}</strong></div>
+              <div><span>Expiry Date</span><strong>{selectedPlan.expiry_date || "—"}</strong></div>
+              <div><span>Frequency</span><strong>{selectedPlan.frequency || "—"}</strong></div>
+              <div><span>Amount</span><strong>{selectedPlan.amount ?? "—"}</strong></div>
+              <div>
+                <span>Status</span>
+                <strong>
+                  <span className={`status status-${String(selectedPlan.status || "").toLowerCase().replaceAll(" ", "-")}`}>
+                    {selectedPlan.status || "—"}
+                  </span>
+                </strong>
+              </div>
+              <div><span>Days Remaining</span><strong>{formatDaysRemaining(selectedPlan)}</strong></div>
+              <div className="plan-information-notes"><span>Notes</span><strong>{selectedPlan.notes || "—"}</strong></div>
+            </div>
+
+            <div className="plan-details-actions">
+              <button type="button" className="recharge-button" onClick={() => openRechargeForm(selectedPlan)}>
+                Recharge
+              </button>
+              <button type="button" className="edit-button" onClick={() => openEditForm(selectedPlan)}>
+                Edit
+              </button>
+              <button type="button" className="delete-button" onClick={() => handleDelete(selectedPlan)}>
+                Delete
+              </button>
+            </div>
+
+            <div className="plan-history-section">
+              <h3>Recharge History</h3>
+              {rechargeHistoryLoading ? (
+                <p className="message">Loading recharge history...</p>
+              ) : rechargeHistory.length === 0 ? (
+                <p className="message">No recharge history found.</p>
+              ) : (
+                <div className="history-table-container">
+                  <table className="history-table">
+                    <thead>
+                      <tr><th>Recharge Date</th><th>Old Expiry</th><th>New Expiry</th><th>Amount</th><th>Notes</th></tr>
+                    </thead>
+                    <tbody>
+                      {rechargeHistory.map((history) => (
+                        <tr key={history.id}>
+                          <td>{history.recharge_date}</td>
+                          <td>{history.old_expiry_date || "—"}</td>
+                          <td>{history.new_expiry_date || "—"}</td>
+                          <td>{history.amount ?? "—"}</td>
+                          <td>{history.notes || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="plan-history-section">
+              <h3>Reminder History</h3>
+              {selectedPlanReminders.length === 0 ? (
+                <p className="message">No reminder history found for this plan.</p>
+              ) : (
+                <div className="history-table-container">
+                  <table className="history-table">
+                    <thead>
+                      <tr><th>Reminder Type</th><th>Expiry Date</th><th>Created At</th></tr>
+                    </thead>
+                    <tbody>
+                      {selectedPlanReminders.map((reminder) => (
+                        <tr key={reminder.id}>
+                          <td>{String(reminder.reminder_type || "").replaceAll("_", " ")}</td>
+                          <td>{reminder.expiry_date || "—"}</td>
+                          <td>{reminder.created_at ? new Date(reminder.created_at).toLocaleString() : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {rechargePlan && (
   <section className="form-section">
 
@@ -853,6 +1037,26 @@ const openHistory = async (plan) => {
           )}
         </section>
 
+        <section className="expense-summary-section" aria-labelledby="expense-summary-title">
+          <div className="section-header">
+            <h2 id="expense-summary-title">Service-wise Expense Summary</h2>
+          </div>
+
+          {serviceExpenseStats.length === 0 ? (
+            <p className="message">No service expenses to summarize yet.</p>
+          ) : (
+            <div className="expense-summary-grid">
+              {serviceExpenseStats.map(([service, totals]) => (
+                <div className="expense-summary-card" key={service}>
+                  <h3>{service}</h3>
+                  <p>{totals.planCount} {totals.planCount === 1 ? "Plan" : "Plans"}</p>
+                  <strong>{formatCurrency(totals.totalAmount)}</strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         <section className="renewals-section" aria-labelledby="renewals-title">
           <div className="section-header">
             <h2 id="renewals-title">Upcoming Renewals</h2>
@@ -863,34 +1067,42 @@ const openHistory = async (plan) => {
           ) : (
             <div className="renewals-grid">
               {upcomingRenewals.map((plan) => (
-                <button
-                  type="button"
-                  className="renewal-card"
-                  key={plan.id}
-                  aria-label={`Show ${plan.service} ${plan.plan_name} in the plans list`}
-                  aria-pressed={selectedRenewal?.planId === plan.id}
-                  onClick={() => revealRenewalPlan(plan)}
-                >
-                  <div className="renewal-card-header">
-                    <div>
-                      <h3>{plan.service}</h3>
-                      <p>{plan.plan_name}</p>
+                <div className="renewal-item" key={plan.id}>
+                  <button
+                    type="button"
+                    className="renewal-card"
+                    aria-label={`Show ${plan.service} ${plan.plan_name} in the plans list`}
+                    aria-pressed={selectedRenewal?.planId === plan.id}
+                    onClick={() => revealRenewalPlan(plan)}
+                  >
+                    <div className="renewal-card-header">
+                      <div>
+                        <h3>{plan.service}</h3>
+                        <p>{plan.plan_name}</p>
+                      </div>
+                      <span className={`status status-${plan.status.toLowerCase().replaceAll(" ", "-")}`}>
+                        {plan.status}
+                      </span>
                     </div>
-                    <span className={`status status-${plan.status.toLowerCase().replaceAll(" ", "-")}`}>
-                      {plan.status}
-                    </span>
-                  </div>
-                  <div className="renewal-details">
-                    <div>
-                      <span>Expiry Date</span>
-                      <strong>{plan.expiry_date || "Not set"}</strong>
+                    <div className="renewal-details">
+                      <div>
+                        <span>Expiry Date</span>
+                        <strong>{plan.expiry_date || "Not set"}</strong>
+                      </div>
+                      <div>
+                        <span>Days Remaining</span>
+                        <strong>{formatDaysRemaining(plan)}</strong>
+                      </div>
                     </div>
-                    <div>
-                      <span>Days Remaining</span>
-                      <strong>{formatDaysRemaining(plan)}</strong>
-                    </div>
-                  </div>
-                </button>
+                  </button>
+                  <button
+                    type="button"
+                    className="renewal-open-details"
+                    onClick={() => openPlanDetails(plan)}
+                  >
+                    View Plan Details
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -990,6 +1202,17 @@ const openHistory = async (plan) => {
                   data-plan-id={plan.id}
                   className={`plan-card${selectedRenewal?.planId === plan.id ? " is-highlighted" : ""}`}
                   key={plan.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Open details for ${plan.service} ${plan.plan_name}`}
+                  onClick={() => openPlanDetails(plan)}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openPlanDetails(plan);
+                    }
+                  }}
                 >
 
                   <div className="plan-header">
@@ -1070,28 +1293,40 @@ const openHistory = async (plan) => {
 
   <button
     className="recharge-button"
-    onClick={() => openRechargeForm(plan)}
+    onClick={(event) => {
+      event.stopPropagation();
+      openRechargeForm(plan);
+    }}
   >
     🔄 Recharge
   </button>
 
   <button
     className="history-button"
-    onClick={() => openHistory(plan)}
+    onClick={(event) => {
+      event.stopPropagation();
+      openHistory(plan);
+    }}
   >
     📋 History
   </button>
 
   <button
     className="edit-button"
-    onClick={() => openEditForm(plan)}
+    onClick={(event) => {
+      event.stopPropagation();
+      openEditForm(plan);
+    }}
   >
     ✏️ Edit
   </button>
 
   <button
   className="delete-button"
-  onClick={() => handleDelete(plan)}
+  onClick={(event) => {
+    event.stopPropagation();
+    handleDelete(plan);
+  }}
 >
   🗑 Delete
 </button>
