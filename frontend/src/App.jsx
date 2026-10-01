@@ -6,6 +6,9 @@ function App() {
   const [reminders, setReminders] = useState([]);
   const [remindersLoading, setRemindersLoading] = useState(true);
   const [remindersError, setRemindersError] = useState("");
+  const [reminderServiceFilter, setReminderServiceFilter] = useState("");
+  const [reminderTypeFilter, setReminderTypeFilter] = useState("");
+  const [reminderSearchText, setReminderSearchText] = useState("");
   const [searchText, setSearchText] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -35,6 +38,19 @@ const [rechargeData, setRechargeData] = useState({
     frequency: "",
     amount: "",
     notes: "",
+  });
+
+  const reminderServices = [...new Set(
+    reminders.map((reminder) => reminder.service).filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b));
+  const filteredReminders = reminders.filter((reminder) => {
+    const matchesService = !reminderServiceFilter || reminder.service === reminderServiceFilter;
+    const matchesType = !reminderTypeFilter || reminder.reminder_type === reminderTypeFilter;
+    const matchesSearch = String(reminder.plan_name || "")
+      .toLowerCase()
+      .includes(reminderSearchText.trim().toLowerCase());
+
+    return matchesService && matchesType && matchesSearch;
   });
 
   const normalizedSearch = searchText.trim().toLowerCase();
@@ -105,6 +121,12 @@ const [rechargeData, setRechargeData] = useState({
     setSearchText("");
     setServiceFilter("");
     setStatusFilter("");
+  };
+
+  const clearReminderFilters = () => {
+    setReminderServiceFilter("");
+    setReminderTypeFilter("");
+    setReminderSearchText("");
   };
 
   const revealRenewalPlan = (plan) => {
@@ -1018,12 +1040,65 @@ const openHistory = async (plan) => {
             </button>
           </div>
 
+          <div className="reminder-filters" aria-label="Filter reminder history">
+            <div className="reminder-filter-field">
+              <label htmlFor="reminder-service-filter">Service</label>
+              <select
+                id="reminder-service-filter"
+                value={reminderServiceFilter}
+                onChange={(event) => setReminderServiceFilter(event.target.value)}
+              >
+                <option value="">All Services</option>
+                {reminderServices.map((service) => (
+                  <option value={service} key={service}>{service}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="reminder-filter-field">
+              <label htmlFor="reminder-type-filter">Reminder Type</label>
+              <select
+                id="reminder-type-filter"
+                value={reminderTypeFilter}
+                onChange={(event) => setReminderTypeFilter(event.target.value)}
+              >
+                <option value="">All Types</option>
+                <option value="7_DAYS">7 Days</option>
+                <option value="3_DAYS">3 Days</option>
+                <option value="DUE_TODAY">Due Today</option>
+                <option value="EXPIRED">Expired</option>
+                <option value="EXPIRY_MISSING">Expiry Missing</option>
+              </select>
+            </div>
+
+            <div className="reminder-filter-field reminder-search-field">
+              <label htmlFor="reminder-plan-search">Search</label>
+              <input
+                id="reminder-plan-search"
+                type="search"
+                placeholder="Plan name..."
+                value={reminderSearchText}
+                onChange={(event) => setReminderSearchText(event.target.value)}
+              />
+            </div>
+
+            <button
+              type="button"
+              className="clear-filters-button reminder-clear-button"
+              onClick={clearReminderFilters}
+            >
+              Clear Filters
+            </button>
+          </div>
+
           {remindersLoading ? (
             <p className="message">Loading reminder history...</p>
           ) : remindersError ? (
             <p className="message">{remindersError}</p>
           ) : reminders.length === 0 ? (
             <p className="message">No reminder history found.</p>
+          ) : filteredReminders.length === 0 ? (
+            <p className="message">No reminders match the selected filters.</p>
           ) : (
             <div className="history-table-container reminder-history-table-container">
               <table className="history-table reminder-history-table">
@@ -1037,7 +1112,7 @@ const openHistory = async (plan) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {reminders.map((reminder) => (
+                  {filteredReminders.map((reminder) => (
                     <tr key={reminder.id}>
                       <td>{reminder.service || "—"}</td>
                       <td>{reminder.plan_name || "—"}</td>
