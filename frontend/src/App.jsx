@@ -171,6 +171,18 @@ const [rechargeData, setRechargeData] = useState({
 
     return matchesSearch && matchesService && matchesStatus;
   });
+  const notificationStatusPriority = {
+    EXPIRED: 0,
+    "DUE TODAY": 1,
+    "DUE SOON": 2,
+    UPCOMING: 3,
+  };
+  const notifications = plans
+    .filter((plan) => Object.hasOwn(notificationStatusPriority, plan.status))
+    .sort((first, second) => (
+      notificationStatusPriority[first.status] - notificationStatusPriority[second.status]
+    ));
+
   const selectedPlan = plans.find((plan) => plan.id === selectedPlanId) || null;
   const selectedPlanReminders = reminders.filter(
     (reminder) => String(reminder.plan_id) === String(selectedPlanId)
@@ -1440,6 +1452,42 @@ const closePlanDetails = () => {
             </div>
           ))}
 </section>
+
+        <section className="notifications-section" aria-labelledby="notifications-title">
+          <div className="section-header">
+            <h2 id="notifications-title">Notifications ({notifications.length})</h2>
+          </div>
+
+          {notifications.length === 0 ? (
+            <p className="message">No active notifications</p>
+          ) : (
+            <div className="notification-grid">
+              {notifications.map((plan) => (
+                <button
+                  type="button"
+                  className="notification-card"
+                  key={plan.id}
+                  onClick={() => openPlanDetails(plan)}
+                  aria-label={`Open details for ${plan.service} ${plan.plan_name}, ${plan.status}`}
+                >
+                  <div className="notification-card-heading">
+                    <div>
+                      <h3>{plan.service}</h3>
+                      <p>{plan.plan_name}</p>
+                    </div>
+                    <span className={`status status-${plan.status.toLowerCase().replaceAll(" ", "-")}`}>
+                      {plan.status}
+                    </span>
+                  </div>
+                  <div className="notification-card-details">
+                    <span>Expiry Date <strong>{plan.expiry_date || "Not set"}</strong></span>
+                    <span>Days Remaining <strong>{formatDaysRemaining(plan)}</strong></span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
 
         <section className="service-summary-section" aria-labelledby="service-summary-title">
           <div className="section-header">
