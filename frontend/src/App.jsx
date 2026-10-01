@@ -1,6 +1,36 @@
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 
+const parseCalendarDate = (value) => {
+  if (typeof value !== "string") return null;
+
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const [, yearText, monthText, dayText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return {
+    date,
+    key: `${yearText}-${monthText}-${dayText}`,
+  };
+};
+
+const getLocalDateKey = (date) => (
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+);
+
 function App() {
   const [plans, setPlans] = useState([]);
   const [reminders, setReminders] = useState([]);
@@ -14,6 +44,10 @@ function App() {
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedRenewal, setSelectedRenewal] = useState(null);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editPlan, setEditPlan] = useState(null);
@@ -166,6 +200,54 @@ const [rechargeData, setRechargeData] = useState({
       return months;
     }, {})
   ).sort(([monthA], [monthB]) => monthB.localeCompare(monthA));
+
+  const calendarEventsByDate = plans.reduce((eventsByDate, plan) => {
+    [
+      ["recharge_date", "Recharge"],
+      ["expiry_date", "Expiry"],
+    ].forEach(([dateField, eventType]) => {
+      const parsedDate = parseCalendarDate(plan[dateField]);
+      if (!parsedDate) return;
+
+      if (!eventsByDate.has(parsedDate.key)) {
+        eventsByDate.set(parsedDate.key, []);
+      }
+
+      eventsByDate.get(parsedDate.key).push({
+        plan,
+        eventType,
+        id: `${plan.id}-${dateField}`,
+      });
+    });
+
+    return eventsByDate;
+  }, new Map());
+
+  const calendarYear = calendarMonth.getFullYear();
+  const calendarMonthIndex = calendarMonth.getMonth();
+  const calendarDaysInMonth = new Date(calendarYear, calendarMonthIndex + 1, 0).getDate();
+  const calendarStartOffset = new Date(calendarYear, calendarMonthIndex, 1).getDay();
+  const todayKey = getLocalDateKey(new Date());
+  const calendarCells = Array.from({ length: 42 }, (_, index) => {
+    const day = index - calendarStartOffset + 1;
+    if (day < 1 || day > calendarDaysInMonth) {
+      return { key: `blank-${index}`, day: null, events: [] };
+    }
+
+    const dateKey = getLocalDateKey(new Date(calendarYear, calendarMonthIndex, day));
+    return {
+      key: dateKey,
+      day,
+      dateKey,
+      isToday: dateKey === todayKey,
+      events: calendarEventsByDate.get(dateKey) || [],
+    };
+  });
+
+  const calendarTitle = new Intl.DateTimeFormat("en-IN", {
+    month: "long",
+    year: "numeric",
+  }).format(calendarMonth);
 
   const attentionStatuses = new Set([
     "UPCOMING",
@@ -1125,6 +1207,70 @@ const closePlanDetails = () => {
               ))}
             </div>
           )}
+        </section>
+
+        <section className="calendar-section" aria-labelledby="calendar-title">
+          <div className="calendar-section-header">
+            <h2 id="calendar-title">Recharge &amp; Expiry Calendar</h2>
+            <div className="calendar-navigation">
+              <button
+                type="button"
+                aria-label="Previous month"
+                onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+              >
+                ‹
+              </button>
+              <h3>{calendarTitle}</h3>
+              <button
+                type="button"
+                aria-label="Next month"
+                onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+              >
+                ›
+              </button>
+            </div>
+          </div>
+
+          <div className="calendar-legend" aria-label="Calendar event legend">
+            <span><i className="calendar-legend-dot recharge-event-dot" />Recharge</span>
+            <span><i className="calendar-legend-dot expiry-event-dot" />Expiry</span>
+          </div>
+
+          <div className="calendar-scroll-container">
+            <div className="calendar-grid">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((weekday) => (
+                <div className="calendar-weekday" key={weekday}>{weekday}</div>
+              ))}
+
+              {calendarCells.map((cell) => (
+                <div
+                  key={cell.key}
+                  className={`calendar-day${cell.day === null ? " is-empty" : ""}${cell.isToday ? " is-today" : ""}`}
+                >
+                  {cell.day !== null && (
+                    <>
+                      <span className="calendar-day-number">{cell.day}</span>
+                      <div className="calendar-day-events">
+                        {cell.events.map((event) => (
+                          <button
+                            type="button"
+                            key={event.id}
+                            className={`calendar-event ${event.eventType === "Recharge" ? "recharge-event" : "expiry-event"}`}
+                            aria-label={`${event.eventType} event for ${event.plan.plan_name} (${event.plan.service})`}
+                            onClick={() => openPlanDetails(event.plan)}
+                          >
+                            <strong>{event.plan.plan_name}</strong>
+                            <span>{event.plan.service}</span>
+                            <small>{event.eventType}</small>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
         <section className="renewals-section" aria-labelledby="renewals-title">
