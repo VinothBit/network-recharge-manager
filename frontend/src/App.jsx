@@ -1006,6 +1006,18 @@ const closePlanDetails = () => {
   setRechargeHistory([]);
 };
 
+const scrollToDashboardSection = (sectionId) => {
+  document.getElementById(sectionId)?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+};
+
+const openAddPlanFromQuickActions = () => {
+  setShowForm(true);
+  requestAnimationFrame(() => scrollToDashboardSection("add-plan-form"));
+};
+
   return (
     <div className="app">
 
@@ -1296,7 +1308,7 @@ const closePlanDetails = () => {
         {/* ADD PLAN FORM */}
 
         {showForm && (
-          <section className="form-section">
+          <section className="form-section" id="add-plan-form">
 
             <h2>{editPlan ? "Edit Plan" : "Add New Plan"}</h2>
 
@@ -1453,6 +1465,53 @@ const closePlanDetails = () => {
           ))}
 </section>
 
+        <section className="quick-actions-section" aria-labelledby="quick-actions-title">
+          <h2 id="quick-actions-title">Quick Actions</h2>
+          <div className="quick-actions-grid">
+            <button type="button" className="quick-action-button quick-action-add" onClick={openAddPlanFromQuickActions}>
+              ➕ Add Plan
+            </button>
+            <button
+              type="button"
+              className="quick-action-button quick-action-import"
+              onClick={() => importFileInputRef.current?.click()}
+              disabled={isImporting}
+            >
+              📥 Import CSV
+            </button>
+            <button
+              type="button"
+              className="quick-action-button quick-action-export"
+              onClick={exportPlansCsv}
+              disabled={loading || filteredPlans.length === 0}
+            >
+              📤 Export CSV
+            </button>
+            <button
+              type="button"
+              className="quick-action-button quick-action-backup"
+              onClick={downloadDatabaseBackup}
+              disabled={isBackingUp}
+            >
+              💾 Backup Database
+            </button>
+            <button
+              type="button"
+              className="quick-action-button quick-action-calendar"
+              onClick={() => scrollToDashboardSection("calendar-section")}
+            >
+              📅 Calendar
+            </button>
+            <button
+              type="button"
+              className="quick-action-button quick-action-reminders"
+              onClick={() => scrollToDashboardSection("reminder-history-section")}
+            >
+              🔔 Reminders
+            </button>
+          </div>
+        </section>
+
         <section className="notifications-section" aria-labelledby="notifications-title">
           <div className="section-header">
             <h2 id="notifications-title">Notifications ({notifications.length})</h2>
@@ -1559,7 +1618,7 @@ const closePlanDetails = () => {
           )}
         </section>
 
-        <section className="calendar-section" aria-labelledby="calendar-title">
+        <section className="calendar-section" id="calendar-section" aria-labelledby="calendar-title">
           <div className="calendar-section-header">
             <h2 id="calendar-title">Recharge &amp; Expiry Calendar</h2>
             <div className="calendar-navigation">
@@ -2075,7 +2134,7 @@ const closePlanDetails = () => {
 
         </section>
 
-        <section className="reminder-history-section" aria-labelledby="reminder-history-title">
+        <section className="reminder-history-section" id="reminder-history-section" aria-labelledby="reminder-history-title">
           <div className="section-header reminder-history-header">
             <h2 id="reminder-history-title">Reminder History</h2>
             <div className="reminder-history-actions">
