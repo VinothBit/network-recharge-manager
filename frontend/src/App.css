@@ -256,10 +256,14 @@ body {
 ========================= */
 
 .status {
+  display: inline-flex;
+  align-items: center;
   padding: 6px 12px;
+  border: 1px solid currentColor;
   border-radius: 20px;
   font-size: 12px;
   font-weight: bold;
+  line-height: 1.2;
 }
 
 /* Active */
@@ -1105,6 +1109,13 @@ body {
 .stat-due-today { border-top-color: #f97316; }
 .stat-expired { border-top-color: #ef4444; }
 .stat-update-required { border-top-color: #eab308; }
+
+.summary-card.stat-active p { color: #166534; }
+.summary-card.stat-upcoming p { color: #1e40af; }
+.summary-card.stat-due-soon p { color: #92400e; }
+.summary-card.stat-due-today p { color: #9a3412; }
+.summary-card.stat-expired p { color: #b91c1c; }
+.summary-card.stat-update-required p { color: #854d0e; }
 
 .quick-actions-section {
   margin: 0 0 32px;
