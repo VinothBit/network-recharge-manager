@@ -115,6 +115,9 @@ function App() {
   const [importError, setImportError] = useState("");
   const [importMessage, setImportMessage] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [backupMessage, setBackupMessage] = useState("");
+  const [backupError, setBackupError] = useState("");
+  const [isBackingUp, setIsBackingUp] = useState(false);
   const importFileInputRef = useRef(null);
 
   const [rechargePlan, setRechargePlan] = useState(null);
@@ -573,6 +576,36 @@ const [rechargeData, setRechargeData] = useState({
     setImportError("");
     setImportMessage("");
     if (importFileInputRef.current) importFileInputRef.current.value = "";
+  };
+
+  const downloadDatabaseBackup = async () => {
+    setBackupMessage("");
+    setBackupError("");
+    setIsBackingUp(true);
+
+    try {
+      const response = await fetch("http://127.0.0.1:5000/backup/database");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Unable to download database backup.");
+      }
+
+      const backupBlob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(backupBlob);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = downloadUrl;
+      downloadLink.download = "recharge_manager_backup.db";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 0);
+      setBackupMessage("Database backup downloaded successfully.");
+    } catch (error) {
+      console.error("Database backup error:", error);
+      setBackupError(error.message || "Unable to download database backup.");
+    } finally {
+      setIsBackingUp(false);
+    }
   };
 
   const revealRenewalPlan = (plan) => {
@@ -1602,6 +1635,14 @@ const closePlanDetails = () => {
             >
               Import Plans CSV
             </button>
+            <button
+              type="button"
+              className="backup-database-button"
+              onClick={downloadDatabaseBackup}
+              disabled={isBackingUp}
+            >
+              {isBackingUp ? "Preparing Backup..." : "Backup Database"}
+            </button>
             <input
               ref={importFileInputRef}
               className="import-plans-file-input"
@@ -1611,6 +1652,16 @@ const closePlanDetails = () => {
             />
             {!loading && filteredPlans.length === 0 && (
               <small className="export-plans-empty">No plans to export.</small>
+            )}
+            {backupMessage && (
+              <small className="backup-database-message" role="status">
+                {backupMessage}
+              </small>
+            )}
+            {backupError && (
+              <small className="backup-database-error" role="alert">
+                {backupError}
+              </small>
             )}
           </div>
         </section>

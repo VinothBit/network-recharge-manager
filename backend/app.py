@@ -1,4 +1,4 @@
-﻿from flask import Flask, jsonify, request
+﻿from flask import Flask, jsonify, request, send_file
 from datetime import date, datetime
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -370,6 +370,24 @@ def get_reminders():
         dict(reminder)
         for reminder in reminders
     ])
+
+
+@app.route("/backup/database", methods=["GET"])
+def backup_database():
+    database_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "recharge_manager.db"
+    )
+
+    if not os.path.isfile(database_path):
+        return jsonify({"error": "Database file not found"}), 404
+
+    return send_file(
+        database_path,
+        as_attachment=True,
+        download_name="recharge_manager_backup.db",
+        mimetype="application/octet-stream"
+    )
 
 # --------------------------------
 # GET ALL PLANS

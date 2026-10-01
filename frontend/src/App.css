@@ -793,6 +793,42 @@ body {
   opacity: 0.6;
 }
 
+.backup-database-button {
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 1px solid #0f766e;
+  border-radius: 8px;
+  background: #0f766e;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.backup-database-button:hover:not(:disabled) {
+  background: #115e59;
+}
+
+.backup-database-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.backup-database-message,
+.backup-database-error {
+  flex-basis: 100%;
+  font-size: 12px;
+}
+
+.backup-database-message {
+  color: #166534;
+}
+
+.backup-database-error {
+  color: #b91c1c;
+}
+
 .plan-import-message {
   margin: -10px 0 18px;
   color: #166534;
