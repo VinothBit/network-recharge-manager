@@ -272,6 +272,10 @@ def check_expiry_reminders():
 
             reminder_type = "3_DAYS"
 
+        elif days_remaining == 1:
+
+            reminder_type = "1_DAY"
+
         elif days_remaining == 0:
 
             reminder_type = "DUE_TODAY"
@@ -358,6 +362,15 @@ def check_expiry_reminders():
                 f"Expiry Date: {expiry_date}\n"
                 "Days Remaining: 3\n\n"
                 "Reminder: Recharge/renewal is due in 3 days."
+            )
+        elif reminder_type == "1_DAY":
+            message = (
+                "\u26a0\ufe0f Network Recharge Reminder\n\n"
+                f"Service: {service}\n"
+                f"Plan: {plan_name}\n"
+                f"Expiry Date: {expiry_date}\n"
+                "Days Remaining: 1\n\n"
+                "Reminder: Recharge/renewal is due in 1 day."
             )
         elif reminder_type == "DUE_TODAY":
             message = (
