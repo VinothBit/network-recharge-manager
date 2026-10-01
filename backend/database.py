@@ -1,6 +1,7 @@
 import sqlite3
+from pathlib import Path
 
-DATABASE = "recharge_manager.db"
+DATABASE = Path(__file__).resolve().parent / "recharge_manager.db"
 
 
 def get_db_connection():

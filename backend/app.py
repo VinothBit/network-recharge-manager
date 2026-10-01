@@ -6,7 +6,7 @@ import os
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from database import init_db, get_db_connection
+from database import DATABASE, init_db, get_db_connection
 
 load_dotenv()
 
@@ -374,10 +374,7 @@ def get_reminders():
 
 @app.route("/backup/database", methods=["GET"])
 def backup_database():
-    database_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "recharge_manager.db"
-    )
+    database_path = DATABASE
 
     if not os.path.isfile(database_path):
         return jsonify({"error": "Database file not found"}), 404
