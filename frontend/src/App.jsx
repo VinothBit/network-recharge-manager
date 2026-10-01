@@ -122,6 +122,51 @@ const [rechargeData, setRechargeData] = useState({
     maximumFractionDigits: 2,
   }).format(amount);
 
+  const monthlyExpenseStats = Object.entries(
+    plans.reduce((months, plan) => {
+      const dateMatch = String(plan.recharge_date || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!dateMatch) return months;
+
+      const [, yearText, monthText, dayText] = dateMatch;
+      const year = Number(yearText);
+      const month = Number(monthText);
+      const day = Number(dayText);
+      const validDate = new Date(year, month - 1, day);
+
+      if (
+        validDate.getFullYear() !== year ||
+        validDate.getMonth() !== month - 1 ||
+        validDate.getDate() !== day
+      ) {
+        return months;
+      }
+
+      const monthKey = `${yearText}-${monthText}`;
+      if (!months[monthKey]) {
+        months[monthKey] = {
+          monthDate: new Date(year, month - 1, 1),
+          planCount: 0,
+          totalAmount: 0,
+        };
+      }
+
+      months[monthKey].planCount += 1;
+
+      const rawAmount = plan.amount;
+      const numericAmount = typeof rawAmount === "number"
+        ? rawAmount
+        : typeof rawAmount === "string" && rawAmount.trim() !== ""
+        ? Number(rawAmount)
+        : 0;
+
+      if (Number.isFinite(numericAmount)) {
+        months[monthKey].totalAmount += numericAmount;
+      }
+
+      return months;
+    }, {})
+  ).sort(([monthA], [monthB]) => monthB.localeCompare(monthA));
+
   const attentionStatuses = new Set([
     "UPCOMING",
     "DUE SOON",
@@ -1049,6 +1094,31 @@ const closePlanDetails = () => {
               {serviceExpenseStats.map(([service, totals]) => (
                 <div className="expense-summary-card" key={service}>
                   <h3>{service}</h3>
+                  <p>{totals.planCount} {totals.planCount === 1 ? "Plan" : "Plans"}</p>
+                  <strong>{formatCurrency(totals.totalAmount)}</strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="expense-summary-section monthly-expense-section" aria-labelledby="monthly-expense-title">
+          <div className="section-header">
+            <h2 id="monthly-expense-title">Monthly Expense Summary</h2>
+          </div>
+
+          {monthlyExpenseStats.length === 0 ? (
+            <p className="message">No plans with valid recharge dates to summarize yet.</p>
+          ) : (
+            <div className="expense-summary-grid">
+              {monthlyExpenseStats.map(([monthKey, totals]) => (
+                <div className="expense-summary-card monthly-expense-card" key={monthKey}>
+                  <h3>
+                    {new Intl.DateTimeFormat("en-IN", {
+                      month: "long",
+                      year: "numeric",
+                    }).format(totals.monthDate)}
+                  </h3>
                   <p>{totals.planCount} {totals.planCount === 1 ? "Plan" : "Plans"}</p>
                   <strong>{formatCurrency(totals.totalAmount)}</strong>
                 </div>
