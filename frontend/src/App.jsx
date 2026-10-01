@@ -1,5 +1,64 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
+
+const PLAN_CSV_COLUMNS = [
+  "Service",
+  "Plan Name",
+  "Category",
+  "Recharge Date",
+  "Expiry Date",
+  "Frequency",
+  "Amount",
+  "Notes",
+];
+
+const parseCsvText = (text) => {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+
+    if (inQuotes) {
+      if (character === '"') {
+        if (text[index + 1] === '"') {
+          field += '"';
+          index += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += character;
+      }
+      continue;
+    }
+
+    if (character === '"' && field.length === 0) {
+      inQuotes = true;
+    } else if (character === ",") {
+      row.push(field);
+      field = "";
+    } else if (character === "\n" || character === "\r") {
+      row.push(field);
+      if (row.some((value) => value.trim() !== "")) rows.push(row);
+      row = [];
+      field = "";
+      if (character === "\r" && text[index + 1] === "\n") index += 1;
+    } else {
+      field += character;
+    }
+  }
+
+  if (inQuotes) {
+    throw new Error("The CSV contains an unclosed quoted field.");
+  }
+
+  row.push(field);
+  if (row.some((value) => value.trim() !== "")) rows.push(row);
+  return rows;
+};
 
 const parseCalendarDate = (value) => {
   if (typeof value !== "string") return null;
@@ -51,6 +110,12 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editPlan, setEditPlan] = useState(null);
+  const [showImportPreview, setShowImportPreview] = useState(false);
+  const [importPreview, setImportPreview] = useState([]);
+  const [importError, setImportError] = useState("");
+  const [importMessage, setImportMessage] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const importFileInputRef = useRef(null);
 
   const [rechargePlan, setRechargePlan] = useState(null);
 
@@ -363,6 +428,151 @@ const [rechargeData, setRechargeData] = useState({
     link.click();
     link.remove();
     window.setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 0);
+  };
+
+  const handlePlanCsvSelection = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setImportError("");
+    setImportMessage("");
+    setImportPreview([]);
+
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setImportError("Please select a .csv file.");
+      setShowImportPreview(true);
+      return;
+    }
+
+    try {
+      const rows = parseCsvText(await file.text());
+      if (rows.length === 0) {
+        throw new Error("The CSV file is empty.");
+      }
+
+      const headers = rows[0].map((header, index) => {
+        const normalized = header.trim().replace(/^\uFEFF/, "").toLowerCase();
+        return [normalized, index];
+      });
+      const headerIndexes = new Map(headers);
+      const missingHeaders = PLAN_CSV_COLUMNS.filter(
+        (column) => !headerIndexes.has(column.toLowerCase())
+      );
+
+      if (missingHeaders.length > 0) {
+        throw new Error(`Missing required columns: ${missingHeaders.join(", " )}`);
+      }
+
+      const previewRows = rows.slice(1).map((csvRow, index) => {
+        const readColumn = (name) => {
+          const value = csvRow[headerIndexes.get(name.toLowerCase())] ?? "";
+          return value.trim();
+        };
+        const plan = {
+          service: readColumn("Service"),
+          plan_name: readColumn("Plan Name"),
+          category: readColumn("Category"),
+          recharge_date: readColumn("Recharge Date"),
+          expiry_date: readColumn("Expiry Date"),
+          frequency: readColumn("Frequency"),
+          amount: readColumn("Amount"),
+          notes: readColumn("Notes"),
+        };
+        const errors = [];
+
+        if (!plan.service) errors.push("Service is required.");
+        if (!plan.plan_name) errors.push("Plan Name is required.");
+        if (!plan.category) errors.push("Category is required.");
+
+        ["recharge_date", "expiry_date"].forEach((dateField) => {
+          if (plan[dateField] && !parseCalendarDate(plan[dateField])) {
+            errors.push(`${dateField === "recharge_date" ? "Recharge Date" : "Expiry Date"} must use YYYY-MM-DD.`);
+          }
+        });
+
+        if (plan.amount && !Number.isFinite(Number(plan.amount))) {
+          errors.push("Amount must be numeric.");
+        }
+
+        return {
+          rowNumber: index + 2,
+          plan,
+          errors,
+          valid: errors.length === 0,
+          apiError: "",
+        };
+      });
+
+      setImportPreview(previewRows);
+      setShowImportPreview(true);
+      if (previewRows.length === 0) {
+        setImportMessage("The CSV contains headers but no plan rows.");
+      }
+    } catch (error) {
+      setImportError(error.message || "Unable to read this CSV file.");
+      setShowImportPreview(true);
+    }
+  };
+
+  const importValidPlans = async () => {
+    const validRows = importPreview.filter((row) => row.valid);
+    if (validRows.length === 0 || isImporting) return;
+
+    setIsImporting(true);
+    setImportMessage("");
+    const failedRows = [];
+    let importedCount = 0;
+
+    for (const row of validRows) {
+      try {
+        const response = await fetch("http://127.0.0.1:5000/plans", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...row.plan,
+            amount: row.plan.amount === "" ? null : Number(row.plan.amount),
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data.error || `Request failed (${response.status}).`);
+        }
+
+        importedCount += 1;
+      } catch (error) {
+        failedRows.push({
+          ...row,
+          apiError: error.message || "Import request failed.",
+        });
+      }
+    }
+
+    await fetchPlans();
+
+    const validationFailures = importPreview.filter((row) => !row.valid);
+    const remainingRows = [...validationFailures, ...failedRows]
+      .sort((a, b) => a.rowNumber - b.rowNumber);
+    setImportPreview(remainingRows);
+    setImportMessage(
+      `${importedCount} plan${importedCount === 1 ? "" : "s"} imported.` +
+      (failedRows.length > 0 ? ` ${failedRows.length} row request${failedRows.length === 1 ? "" : "s"} failed; review or retry them below.` : "")
+    );
+
+    if (remainingRows.length === 0) {
+      setShowImportPreview(false);
+    }
+
+    setIsImporting(false);
+  };
+
+  const cancelPlanImport = () => {
+    setShowImportPreview(false);
+    setImportPreview([]);
+    setImportError("");
+    setImportMessage("");
+    if (importFileInputRef.current) importFileInputRef.current.value = "";
   };
 
   const revealRenewalPlan = (plan) => {
@@ -1384,11 +1594,111 @@ const closePlanDetails = () => {
             >
               Export Plans CSV
             </button>
+            <button
+              type="button"
+              className="import-plans-button"
+              onClick={() => importFileInputRef.current?.click()}
+              disabled={isImporting}
+            >
+              Import Plans CSV
+            </button>
+            <input
+              ref={importFileInputRef}
+              className="import-plans-file-input"
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handlePlanCsvSelection}
+            />
             {!loading && filteredPlans.length === 0 && (
               <small className="export-plans-empty">No plans to export.</small>
             )}
           </div>
         </section>
+
+        {importMessage && <p className="plan-import-message">{importMessage}</p>}
+
+        {showImportPreview && (
+          <section className="plan-import-section" aria-labelledby="plan-import-title">
+            <div className="plan-import-header">
+              <h2 id="plan-import-title">Import Plans Preview</h2>
+              {!importError && (
+                <div className="plan-import-counts">
+                  <span>Total rows: <strong>{importPreview.length}</strong></span>
+                  <span>Valid rows: <strong>{importPreview.filter((row) => row.valid).length}</strong></span>
+                  <span>Invalid rows: <strong>{importPreview.filter((row) => !row.valid).length}</strong></span>
+                </div>
+              )}
+            </div>
+
+            {importError ? (
+              <p className="plan-import-error">{importError}</p>
+            ) : importPreview.length === 0 ? (
+              <p className="message">The CSV contains no plan rows to preview.</p>
+            ) : (
+              <div className="plan-import-table-container">
+                <table className="plan-import-table">
+                  <thead>
+                    <tr>
+                      <th>Row</th>
+                      <th>Service</th>
+                      <th>Plan Name</th>
+                      <th>Category</th>
+                      <th>Recharge Date</th>
+                      <th>Expiry Date</th>
+                      <th>Frequency</th>
+                      <th>Amount</th>
+                      <th>Notes</th>
+                      <th>Validation Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importPreview.map((row) => (
+                      <tr className={row.valid ? "import-row-valid" : "import-row-invalid"} key={row.rowNumber}>
+                        <td>{row.rowNumber}</td>
+                        <td>{row.plan.service || "—"}</td>
+                        <td>{row.plan.plan_name || "—"}</td>
+                        <td>{row.plan.category || "—"}</td>
+                        <td>{row.plan.recharge_date || "—"}</td>
+                        <td>{row.plan.expiry_date || "—"}</td>
+                        <td>{row.plan.frequency || "—"}</td>
+                        <td>{row.plan.amount || "—"}</td>
+                        <td className="import-notes-cell">{row.plan.notes || "—"}</td>
+                        <td>
+                          <span className={`import-row-status ${row.valid && !row.apiError ? "is-valid" : "is-invalid"}`}>
+                            {row.errors.length > 0
+                              ? `Invalid: ${row.errors.join(" ")}`
+                              : row.apiError
+                              ? `Import failed: ${row.apiError}`
+                              : "Valid"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="plan-import-actions">
+              <button
+                type="button"
+                className="import-confirm-button"
+                onClick={importValidPlans}
+                disabled={isImporting || !importPreview.some((row) => row.valid)}
+              >
+                {isImporting ? "Importing..." : "Import Valid Plans"}
+              </button>
+              <button
+                type="button"
+                className="cancel-button"
+                onClick={cancelPlanImport}
+                disabled={isImporting}
+              >
+                Cancel
+              </button>
+            </div>
+          </section>
+        )}
 
         <section className="plans-section" id="all-plans-section">
 
