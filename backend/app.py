@@ -1,65 +1,231 @@
-﻿from flask import Flask, jsonify, request, send_file
+﻿from flask import Flask, g, jsonify, request, send_file, session
 import sqlite3
 import tempfile
-import threading
 from pathlib import Path
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
-import requests
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.schedulers.base import STATE_RUNNING
+import hmac
+import secrets
+from urllib.parse import urlparse
+import portalocker
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.security import check_password_hash
 
-from database import DATABASE, init_db, get_db_connection
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
-load_dotenv()
+from database import (
+    DATABASE,
+    create_initial_admin,
+    get_db_connection,
+    init_db,
+    verify_single_admin_account,
+)
+from coordination import acquire_database_operation_lock, database_operation_lock
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-
-
-def send_telegram_message(message):
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Telegram configuration is missing.")
-        return False
-
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message
-    }
-
-    try:
-        response = requests.post(url, json=payload, timeout=10)
-
-        if response.ok:
-            print("Telegram message sent successfully.")
-            return True
-
-        print("Telegram error:", response.text)
-        return False
-
-    except Exception as error:
-        print("Telegram connection error:", error)
-        return False
 app = Flask(__name__)
-CORS(app)
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+if APP_ENV not in {"development", "testing", "production"}:
+    raise RuntimeError("APP_ENV must be development, testing, or production.")
+IS_PRODUCTION = APP_ENV == "production"
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "")
+if len(FLASK_SECRET_KEY.encode("utf-8")) < 32:
+    raise RuntimeError(
+        "FLASK_SECRET_KEY must be configured with at least 32 bytes of random data."
+    )
 
-DATABASE_OPERATION_LOCK = threading.RLock()
-REQUIRED_DATABASE_TABLES = {"plans", "recharge_history", "reminder_log"}
-scheduler = None
+configured_origins = os.getenv("FRONTEND_ORIGINS", "").strip()
+if IS_PRODUCTION and not configured_origins:
+    raise RuntimeError("Set FRONTEND_ORIGINS to the exact HTTPS frontend origin in production.")
+if configured_origins:
+    FRONTEND_ORIGINS = [
+        origin.strip().rstrip("/")
+        for origin in configured_origins.split(",")
+        if origin.strip()
+    ]
+else:
+    FRONTEND_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+for origin in FRONTEND_ORIGINS:
+    parsed_origin = urlparse(origin)
+    if (
+        "*" in origin
+        or parsed_origin.scheme not in {"http", "https"}
+        or not parsed_origin.netloc
+        or parsed_origin.path
+        or parsed_origin.query
+        or parsed_origin.fragment
+        or parsed_origin.username
+        or parsed_origin.password
+    ):
+        raise RuntimeError("FRONTEND_ORIGINS must contain exact origins without paths or wildcards.")
+    if IS_PRODUCTION and parsed_origin.scheme != "https":
+        raise RuntimeError("Production FRONTEND_ORIGINS must use HTTPS.")
+
+if IS_PRODUCTION and len(FRONTEND_ORIGINS) != 1:
+    raise RuntimeError("Configure exactly one production frontend origin in FRONTEND_ORIGINS.")
+
+secure_cookie_setting = os.getenv("SESSION_COOKIE_SECURE")
+SESSION_COOKIE_SECURE = (
+    secure_cookie_setting.strip().lower() in {"1", "true", "yes"}
+    if secure_cookie_setting is not None
+    else IS_PRODUCTION
+)
+if IS_PRODUCTION and not SESSION_COOKIE_SECURE:
+    raise RuntimeError("SESSION_COOKIE_SECURE must be enabled in production.")
+
+SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax").strip().capitalize()
+if SESSION_COOKIE_SAMESITE not in {"Lax", "Strict", "None"}:
+    raise RuntimeError("SESSION_COOKIE_SAMESITE must be Lax, Strict, or None.")
+if SESSION_COOKIE_SAMESITE == "None" and not SESSION_COOKIE_SECURE:
+    raise RuntimeError("SameSite=None cookies require SESSION_COOKIE_SECURE=true.")
+
+try:
+    DATABASE_LOCK_TIMEOUT_SECONDS = float(
+        os.getenv("DATABASE_LOCK_TIMEOUT_SECONDS", "60")
+    )
+    TRUSTED_PROXY_HOPS = int(os.getenv("TRUSTED_PROXY_HOPS", "0"))
+except ValueError as error:
+    raise RuntimeError(
+        "DATABASE_LOCK_TIMEOUT_SECONDS and TRUSTED_PROXY_HOPS must be numeric."
+    ) from error
+if DATABASE_LOCK_TIMEOUT_SECONDS <= 0 or TRUSTED_PROXY_HOPS < 0:
+    raise RuntimeError("Database lock timeout must be positive and proxy hops cannot be negative.")
+
+RATE_LIMIT_STORAGE_URI = os.getenv("RATELIMIT_STORAGE_URI", "memory://").strip() or "memory://"
+if IS_PRODUCTION and not RATE_LIMIT_STORAGE_URI.lower().startswith(("redis://", "rediss://")):
+    raise RuntimeError(
+        "Production requires a shared Redis RATELIMIT_STORAGE_URI; memory storage is development-only."
+    )
+
+app.config.update(
+    SECRET_KEY=FLASK_SECRET_KEY,
+    SESSION_COOKIE_NAME="rlems_session",
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=SESSION_COOKIE_SECURE,
+    SESSION_COOKIE_SAMESITE=SESSION_COOKIE_SAMESITE,
+    SESSION_COOKIE_PATH="/",
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+    SESSION_REFRESH_EACH_REQUEST=False,
+    MAX_CONTENT_LENGTH=1024 * 1024 * 1024,
+    RATELIMIT_STORAGE_URI=RATE_LIMIT_STORAGE_URI,
+    RATELIMIT_HEADERS_ENABLED=True,
+)
+
+if TRUSTED_PROXY_HOPS:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=TRUSTED_PROXY_HOPS)
+
+CORS(
+    app,
+    resources={r"/*": {"origins": FRONTEND_ORIGINS}},
+    supports_credentials=True,
+    allow_headers=["Content-Type", "X-CSRF-Token"],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+)
+
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=[],
+    storage_uri=RATE_LIMIT_STORAGE_URI,
+    strategy="fixed-window",
+    swallow_errors=False,
+)
+
+if IS_PRODUCTION:
+    app.logger.warning(
+        "Reminder scheduling runs separately; start exactly one scheduler_service.py process."
+    )
+
+REQUIRED_DATABASE_TABLES = {"plans", "recharge_history", "reminder_log", "users"}
 
 
 @app.before_request
 def lock_database_operations():
-    DATABASE_OPERATION_LOCK.acquire()
+    try:
+        g.rlems_database_operation_lock = acquire_database_operation_lock(
+            DATABASE,
+            timeout=DATABASE_LOCK_TIMEOUT_SECONDS,
+        )
+    except portalocker.exceptions.LockException:
+        return jsonify({"error": "Database is busy. Please retry shortly."}), 503
 
 
 @app.teardown_request
 def unlock_database_operations(error=None):
-    DATABASE_OPERATION_LOCK.release()
+    lock = g.pop("rlems_database_operation_lock", None)
+    if lock is not None:
+        lock.release()
+
+
+@app.after_request
+def add_security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "same-origin")
+    response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
+
+@app.errorhandler(429)
+def handle_rate_limit_exceeded(error):
+    return jsonify({"error": "Too many login attempts. Try again later."}), 429
+
+
+def valid_csrf_token():
+    expected_token = session.get("csrf_token")
+    received_token = request.headers.get("X-CSRF-Token", "")
+    return bool(
+        expected_token
+        and received_token
+        and hmac.compare_digest(expected_token, received_token)
+    )
+
+
+@app.before_request
+def require_authentication_and_csrf():
+    if request.method == "OPTIONS":
+        return None
+
+    if request.endpoint == "auth_csrf":
+        return None
+
+    if request.endpoint == "login":
+        if request.method in {"POST", "PUT", "PATCH", "DELETE"} and not valid_csrf_token():
+            return jsonify({"error": "CSRF token missing or invalid."}), 403
+        return None
+
+    if request.endpoint == "auth_me" and request.method == "GET":
+        return None
+
+    user_id = session.get("user_id")
+    if user_id is None:
+        return jsonify({"error": "Authentication required."}), 401
+
+    connection = get_db_connection()
+    try:
+        user = connection.execute(
+            "SELECT id FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    if user is None:
+        session.clear()
+        return jsonify({"error": "Authentication required."}), 401
+
+    csrf_protected_gets = {"test_reminders"}
+    requires_csrf = (
+        request.method in {"POST", "PUT", "PATCH", "DELETE"}
+        or request.endpoint in csrf_protected_gets
+    )
+    if requires_csrf and not valid_csrf_token():
+        return jsonify({"error": "CSRF token missing or invalid."}), 403
+    return None
 
 
 def validate_restore_database(database_path):
@@ -81,6 +247,39 @@ def validate_restore_database(database_path):
             raise ValueError(
                 "Database is missing required tables: "
                 + ", ".join(sorted(missing_tables))
+            )
+
+        user_columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(users)").fetchall()
+        }
+        required_user_columns = {"id", "username", "password_hash", "created_at"}
+        missing_user_columns = required_user_columns - user_columns
+        if missing_user_columns:
+            raise ValueError("Database users table is missing required columns.")
+
+        stored_users = connection.execute(
+            "SELECT username, password_hash FROM users"
+        ).fetchall()
+        valid_users = []
+        for row in stored_users:
+            username, password_hash = row[0], row[1]
+            if not username or not username.strip() or not password_hash:
+                continue
+            if not (
+                password_hash.startswith("scrypt:")
+                or password_hash.startswith("pbkdf2:")
+            ):
+                continue
+            try:
+                check_password_hash(password_hash, "restore-validation-probe")
+            except (TypeError, ValueError):
+                continue
+            valid_users.append(row)
+        usernames = [row[0] for row in valid_users]
+        if len(stored_users) != 1 or len(valid_users) != 1 or len(set(usernames)) != 1:
+            raise ValueError(
+                "Database must contain exactly one administrator with a valid password hash."
             )
     except sqlite3.DatabaseError as error:
         raise ValueError("Uploaded file is not a valid SQLite database.") from error
@@ -114,8 +313,92 @@ def create_database_safety_backup():
     validate_restore_database(backup_path)
     return backup_path
 
-# Initialize database
-init_db()
+# Initialize the database under the shared lock so concurrent workers cannot race.
+with database_operation_lock(DATABASE, timeout=DATABASE_LOCK_TIMEOUT_SECONDS):
+    init_db()
+    create_initial_admin()
+    verify_single_admin_account()
+
+
+@app.route("/auth/csrf", methods=["GET"])
+def auth_csrf():
+    if not session.get("csrf_token"):
+        session["csrf_token"] = secrets.token_urlsafe(32)
+        session.permanent = True
+    return jsonify({"csrf_token": session["csrf_token"]})
+
+
+@app.route("/login", methods=["POST"])
+@limiter.limit("5 per minute; 20 per hour")
+def login():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    password = data.get("password", "")
+    if not isinstance(username, str) or not isinstance(password, str):
+        return jsonify({"error": "Invalid username or password."}), 401
+
+    connection = get_db_connection()
+    try:
+        user = connection.execute(
+            "SELECT id, username, password_hash FROM users WHERE username = ?",
+            (username.strip(),),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    try:
+        valid_password = (
+            user is not None
+            and check_password_hash(user["password_hash"], password)
+        )
+    except (TypeError, ValueError):
+        valid_password = False
+
+    if not valid_password:
+        return jsonify({"error": "Invalid username or password."}), 401
+
+    session.clear()
+    session.permanent = True
+    session["user_id"] = int(user["id"])
+    session["username"] = user["username"]
+    session["csrf_token"] = secrets.token_urlsafe(32)
+    return jsonify({
+        "authenticated": True,
+        "username": user["username"],
+        "csrf_token": session["csrf_token"],
+    })
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    session.permanent = True
+    session["csrf_token"] = secrets.token_urlsafe(32)
+    return jsonify({"success": True, "csrf_token": session["csrf_token"]})
+
+
+@app.route("/auth/me", methods=["GET"])
+def auth_me():
+    user_id = session.get("user_id")
+    if user_id is None:
+        return jsonify({"authenticated": False})
+
+    connection = get_db_connection()
+    try:
+        user = connection.execute(
+            "SELECT id, username FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    if user is None:
+        session.clear()
+        return jsonify({"authenticated": False})
+
+    return jsonify({"authenticated": True, "username": user["username"]})
+
+
 def calculate_status(expiry_date):
     if not expiry_date:
         return "UPDATE REQUIRED", None
@@ -206,30 +489,13 @@ def check_expiry_reminders():
                     None,
                     datetime.now().isoformat()
                 ))
+                conn.commit()
 
                 print("\n[REMINDER]")
                 print(f"Service: {service}")
                 print(f"Plan: {plan_name}")
                 print(f"Recharge Date: {plan['recharge_date']}")
                 print("Reminder Type: EXPIRY DATE MISSING")
-
-                message = (
-                    "âš ï¸ Network Recharge Manager\n\n"
-                    "Expiry date is missing.\n\n"
-                    f"Service: {service}\n"
-                    f"Plan: {plan_name}\n"
-                    f"Recharge Date: {plan['recharge_date']}\n\n"
-                    "Please update the new expiry date."
-                )
-
-                try:
-                    print("Sending Telegram reminder...")
-                    print(f"Reminder type: {reminder_type}")
-                    print(f"Plan: {plan_name}")
-                    telegram_sent = send_telegram_message(message)
-                    print(f"Telegram send result: {telegram_sent}")
-                except Exception as error:
-                    print("Telegram notification failed:", error)
 
                 reminders_found += 1
 
@@ -333,6 +599,7 @@ def check_expiry_reminders():
             expiry_date,
             datetime.now().isoformat()
         ))
+        conn.commit()
 
         # -----------------------------
         # PRINT REMINDER
@@ -344,59 +611,6 @@ def check_expiry_reminders():
         print(f"Expiry Date: {expiry_date}")
         print(f"Days Remaining: {days_remaining}")
         print(f"Reminder Type: {reminder_type}")
-
-        if reminder_type == "7_DAYS":
-            message = (
-                "ðŸ”” Network Recharge Reminder\n\n"
-                f"Service: {service}\n"
-                f"Plan: {plan_name}\n"
-                f"Expiry Date: {expiry_date}\n"
-                "Days Remaining: 7\n\n"
-                "Reminder: Recharge/renewal is due in 7 days."
-            )
-        elif reminder_type == "3_DAYS":
-            message = (
-                "âš ï¸ Network Recharge Reminder\n\n"
-                f"Service: {service}\n"
-                f"Plan: {plan_name}\n"
-                f"Expiry Date: {expiry_date}\n"
-                "Days Remaining: 3\n\n"
-                "Reminder: Recharge/renewal is due in 3 days."
-            )
-        elif reminder_type == "1_DAY":
-            message = (
-                "\u26a0\ufe0f Network Recharge Reminder\n\n"
-                f"Service: {service}\n"
-                f"Plan: {plan_name}\n"
-                f"Expiry Date: {expiry_date}\n"
-                "Days Remaining: 1\n\n"
-                "Reminder: Recharge/renewal is due in 1 day."
-            )
-        elif reminder_type == "DUE_TODAY":
-            message = (
-                "ðŸš¨ Network Recharge Reminder\n\n"
-                f"Service: {service}\n"
-                f"Plan: {plan_name}\n"
-                f"Expiry Date: {expiry_date}\n\n"
-                "Reminder: Recharge/renewal is due TODAY."
-            )
-        else:  # EXPIRED
-            message = (
-                "âŒ Network Recharge Reminder\n\n"
-                f"Service: {service}\n"
-                f"Plan: {plan_name}\n"
-                f"Expiry Date: {expiry_date}\n\n"
-                "Reminder: This plan has EXPIRED."
-            )
-
-        try:
-            print("Sending Telegram reminder...")
-            print(f"Reminder type: {reminder_type}")
-            print(f"Plan: {plan_name}")
-            telegram_sent = send_telegram_message(message)
-            print(f"Telegram send result: {telegram_sent}")
-        except Exception as error:
-            print("Telegram notification failed:", error)
 
         reminders_found += 1
 
@@ -411,8 +625,14 @@ def check_expiry_reminders():
             f"\nTotal reminders detected: {reminders_found}"
         )
 def run_scheduled_expiry_reminders():
-    with DATABASE_OPERATION_LOCK:
-        check_expiry_reminders()
+    try:
+        with database_operation_lock(
+            DATABASE,
+            timeout=DATABASE_LOCK_TIMEOUT_SECONDS,
+        ):
+            check_expiry_reminders()
+    except portalocker.exceptions.LockException:
+        app.logger.warning("Scheduled reminder check skipped because the database remained busy.")
 
 
 # --------------------------------
@@ -474,8 +694,6 @@ def restore_database():
     temporary_path = None
     recovery_path = None
     safety_backup_path = None
-    scheduler_was_running = scheduler is not None and scheduler.state == STATE_RUNNING
-    scheduler_paused = False
 
     try:
         with tempfile.NamedTemporaryFile(
@@ -495,11 +713,7 @@ def restore_database():
         except ValueError as error:
             return jsonify({"success": False, "error": str(error)}), 400
 
-        if scheduler_was_running:
-            scheduler.pause()
-            scheduler_paused = True
-
-        # The request lock and scheduled-job lock ensure no database work is active here.
+        # The shared cross-process request lock excludes web workers and scheduler jobs.
         safety_backup_path = create_database_safety_backup()
         os.replace(str(temporary_path), str(DATABASE))
         temporary_path = None
@@ -552,26 +766,43 @@ def restore_database():
                 recovery_path.unlink(missing_ok=True)
             except OSError:
                 app.logger.exception("Could not remove temporary restore recovery file")
-        if scheduler_paused:
-            try:
-                scheduler.resume()
-            except Exception:
-                app.logger.exception("Could not resume reminder scheduler after restore")
 
 
 @app.route("/backup/database", methods=["GET"])
 def backup_database():
-    database_path = DATABASE
-
-    if not os.path.isfile(database_path):
+    if not os.path.isfile(DATABASE):
         return jsonify({"error": "Database file not found"}), 404
 
-    return send_file(
-        database_path,
-        as_attachment=True,
-        download_name="recharge_manager_backup.db",
-        mimetype="application/octet-stream"
-    )
+    snapshot_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            prefix=".backup_download_",
+            suffix=".db",
+            dir=str(DATABASE.parent),
+            delete=False,
+        ) as snapshot_file:
+            snapshot_path = Path(snapshot_file.name)
+
+        source = sqlite3.connect(str(DATABASE))
+        destination = sqlite3.connect(str(snapshot_path))
+        try:
+            source.backup(destination)
+        finally:
+            destination.close()
+            source.close()
+
+        response = send_file(
+            snapshot_path,
+            as_attachment=True,
+            download_name="recharge_manager_backup.db",
+            mimetype="application/octet-stream",
+        )
+        response.call_on_close(lambda: snapshot_path.unlink(missing_ok=True))
+        return response
+    except Exception:
+        if snapshot_path is not None:
+            snapshot_path.unlink(missing_ok=True)
+        raise
 
 # --------------------------------
 # GET ALL PLANS
@@ -890,46 +1121,23 @@ def delete_plan(plan_id):
         "message": "Plan deleted successfully"
     })
 
-@app.route("/telegram/test", methods=["GET"])
-def telegram_test():
-    success = send_telegram_message(
-        "ðŸ”” Network Recharge Manager\n\nTelegram notification test successful! âœ…"
-    )
-
-    if success:
-        return jsonify({
-            "message": "Telegram message sent successfully"
-        })
-
-    return jsonify({
-        "error": "Failed to send Telegram message"
-    }), 500
-
 # --------------------------------
 # START SERVER
 # --------------------------------
 
 if __name__ == "__main__":
-    scheduler = BackgroundScheduler(
-        timezone="Asia/Kolkata"
-    )
+    if IS_PRODUCTION and os.name == "nt":
+        from waitress import serve
 
-    scheduler.add_job(
-        run_scheduled_expiry_reminders,
-        "cron",
-        hour=9,
-        minute=0,
-        id="daily_expiry_check",
-        replace_existing=True
-    )
-
-    scheduler.start()
-
-    print("Scheduler started.")
-    print("Daily reminder check scheduled for 09:00 Asia/Kolkata.")
-
-    app.run(
-        debug=True,
-        port=5000,
-        use_reloader=False
-    )
+        print("Starting Waitress on 127.0.0.1:5000.")
+        serve(app, host="127.0.0.1", port=5000)
+    elif IS_PRODUCTION:
+        raise RuntimeError(
+            "Use the documented Gunicorn WSGI command on non-Windows production hosts."
+        )
+    else:
+        app.run(
+            debug=True,
+            port=5000,
+            use_reloader=False,
+        )

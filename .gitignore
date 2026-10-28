@@ -4,4 +4,41 @@ venv/
 __pycache__/
 *.pyc
 backend/recharge_manager.db
+backend/recharge_manager.db-wal
+backend/recharge_manager.db-shm
+backend/recharge_manager.db-journal
 backend/recharge_manager_pre_restore_*.db
+backend/*.operations.lock
+backend/*.scheduler.lock
+backend/.backup_download_*.db
+backend/.restore_upload_*.db
+backend/.restore_recovery_*.db
+backend/backups/
+
+# Local environment files and examples (keep safe templates publishable).
+.env.*
+!.env.example
+
+# SQLite databases and snapshots.
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Private keys and local Cloudflare Tunnel configuration/credentials.
+*.pem
+*.key
+cloudflared/
+.cloudflared/
+
+# Python test-runner caches.
+**/.pytest_cache/
+
+# Temporary local administrator recovery utility.
+backend/reset_admin_password.py

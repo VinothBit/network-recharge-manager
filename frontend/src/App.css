@@ -256,14 +256,10 @@ body {
 ========================= */
 
 .status {
-  display: inline-flex;
-  align-items: center;
   padding: 6px 12px;
-  border: 1px solid currentColor;
   border-radius: 20px;
   font-size: 12px;
   font-weight: bold;
-  line-height: 1.2;
 }
 
 /* Active */
@@ -1110,158 +1106,6 @@ body {
 .stat-expired { border-top-color: #ef4444; }
 .stat-update-required { border-top-color: #eab308; }
 
-.summary-card.stat-active p { color: #166534; }
-.summary-card.stat-upcoming p { color: #1e40af; }
-.summary-card.stat-due-soon p { color: #92400e; }
-.summary-card.stat-due-today p { color: #9a3412; }
-.summary-card.stat-expired p { color: #b91c1c; }
-.summary-card.stat-update-required p { color: #854d0e; }
-
-.quick-actions-section {
-  margin: 0 0 32px;
-  padding: 22px;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
-}
-
-.quick-actions-section h2 {
-  margin: 0 0 16px;
-  color: #111827;
-  font-size: 20px;
-}
-
-.quick-actions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
-  gap: 12px;
-}
-
-.quick-action-button {
-  min-height: 46px;
-  padding: 11px 14px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: #fff;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  text-align: center;
-  cursor: pointer;
-  transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
-}
-
-.quick-action-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  filter: brightness(0.94);
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
-}
-
-.quick-action-button:focus-visible {
-  outline: 3px solid #93c5fd;
-  outline-offset: 2px;
-}
-
-.quick-action-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.quick-action-add { background: #2563eb; }
-.quick-action-import { background: #2563eb; }
-.quick-action-export { background: #111827; }
-.quick-action-backup { background: #0f766e; }
-.quick-action-calendar { background: #7c3aed; }
-.quick-action-reminders { background: #c2410c; }
-
-.notifications-section {
-  margin: 0 0 32px;
-  padding: 22px;
-  border-radius: 12px;
-  background: white;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
-}
-
-.notifications-section .section-header {
-  margin-bottom: 16px;
-}
-
-.notification-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 14px;
-}
-
-.notification-card {
-  min-width: 0;
-  padding: 16px;
-  border: 1px solid #e5e7eb;
-  border-left: 4px solid #f97316;
-  border-radius: 10px;
-  background: #fff;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-}
-
-.notification-card:hover {
-  transform: translateY(-2px);
-  border-color: #cbd5e1;
-  box-shadow: 0 6px 15px rgba(15, 23, 42, 0.1);
-}
-
-.notification-card:focus-visible {
-  outline: 3px solid #93c5fd;
-  outline-offset: 2px;
-}
-
-.notification-card-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.notification-card-heading h3,
-.notification-card-heading p {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.notification-card-heading h3 {
-  color: #111827;
-  font-size: 16px;
-}
-
-.notification-card-heading p {
-  margin-top: 4px;
-  color: #64748b;
-  font-size: 14px;
-}
-
-.notification-card-details {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.notification-card-details span {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  color: #64748b;
-  font-size: 12px;
-}
-
-.notification-card-details strong {
-  color: #1f2937;
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-
 .service-summary-section {
   margin: 0 0 32px;
 }
@@ -1792,34 +1636,6 @@ body {
 }
 
 @media (max-width: 650px) {
-  .quick-actions-section {
-    padding: 18px;
-  }
-
-  .quick-actions-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .quick-action-button {
-    width: 100%;
-  }
-
-  .notifications-section {
-    padding: 18px;
-  }
-
-  .notification-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .notification-card-heading {
-    flex-wrap: wrap;
-  }
-
-  .notification-card-details {
-    grid-template-columns: 1fr;
-  }
-
   .service-summary-grid {
     grid-template-columns: 1fr;
   }
@@ -1908,446 +1724,35 @@ body {
   }
 }
 
-/* Cohesive visual refinements */
-:root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
-  color: #1e293b;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-}
 
-body {
-  background: #f1f5f9;
-  color: #1e293b;
-  line-height: 1.5;
-}
+/* Styling for dashboard features added after the historical UI baseline. */
+.summary-card.stat-active p { color: #166534; }
+.summary-card.stat-upcoming p { color: #1e40af; }
+.summary-card.stat-due-soon p { color: #92400e; }
+.summary-card.stat-due-today p { color: #9a3412; }
+.summary-card.stat-expired p { color: #b91c1c; }
+.summary-card.stat-update-required p { color: #854d0e; }
 
-.header {
-  min-height: 94px;
-  padding: 18px max(24px, calc((100vw - 1320px) / 2));
-  background: #fff;
-  color: #0f172a;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.header h1 {
-  font-size: clamp(22px, 2.2vw, 27px);
-  letter-spacing: -0.025em;
-}
-
-.header p {
-  margin-top: 3px;
-  color: #64748b;
-  font-size: 14px;
-}
-
-.add-button {
-  min-height: 42px;
-  padding: 10px 16px;
-  background: #2563eb;
-  color: #fff;
-}
-
-.add-button:hover {
-  background: #1d4ed8;
-}
-
-.container {
-  max-width: 1400px;
-  padding: 28px clamp(18px, 3vw, 40px) 48px;
-}
-
-.summary {
-  gap: 14px;
-  margin-bottom: 26px;
-}
-
-.summary-card,
-.form-section,
 .quick-actions-section,
-.notifications-section,
-.calendar-section,
-.reminder-history-section,
-.plan-details-view,
-.plan-import-section,
-.plan-import-preview,
-.filters-section {
-  border: 1px solid #e2e8f0;
+.notifications-section {
+  margin-bottom: 32px;
+  padding: 22px;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.045);
-}
-
-.summary-card {
-  min-height: 116px;
-  padding: 17px 18px;
-}
-
-.summary-card h3 {
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.summary-card p {
-  font-size: 28px;
-  line-height: 1.2;
-}
-
-.section-header h2,
-.calendar-section-header h2 {
-  color: #0f172a;
-  font-size: 21px;
-  letter-spacing: -0.015em;
-}
-
-.quick-actions-section,
-.notifications-section,
-.calendar-section,
-.reminder-history-section,
-.filters-section {
-  padding: 20px;
   background: #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
 }
 
-.quick-actions-section h2 {
-  margin-bottom: 13px;
-  font-size: 18px;
+.quick-actions-section h2,
+.notifications-section .section-header h2 {
+  margin: 0 0 16px;
+  color: #111827;
+  font-size: 20px;
 }
 
 .quick-actions-grid {
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
   gap: 10px;
-}
-
-.quick-action-button,
-.add-button,
-.save-button,
-.recharge-button,
-.history-button,
-.edit-button,
-.delete-button,
-.cancel-button,
-.clear-filters-button,
-.export-plans-button,
-.import-plans-button,
-.backup-database-button,
-.restore-database-button,
-.refresh-reminders-button,
-.renewal-open-details,
-.restore-confirm-button,
-.restore-cancel-button,
-.import-confirm-button {
-  min-height: 40px;
-  border-radius: 7px;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.quick-action-button {
-  padding: 9px 12px;
-  transition: filter 0.15s ease;
-}
-
-.quick-action-button:hover:not(:disabled) {
-  transform: none;
-  box-shadow: none;
-}
-
-.plan-card,
-.service-summary-card,
-.expense-summary-card,
-.renewal-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 11px;
-  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.04);
-}
-
-.plan-card {
-  padding: 20px;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease;
-}
-
-.plan-card:hover,
-.service-summary-card:hover,
-.renewal-card:hover {
-  transform: none;
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.07);
-}
-
-.plan-header h3 {
-  color: #0f172a;
-  font-size: 18px;
-}
-
-.plan-header p,
-.renewal-card-header p {
-  color: #64748b;
-}
-
-.plan-details {
-  gap: 14px 18px;
-}
-
-.plan-details > div,
-.plan-information-grid > div {
-  min-width: 0;
-}
-
-.plan-details strong,
-.plan-information-grid strong {
-  overflow-wrap: anywhere;
-}
-
-.plan-details-view {
-  padding: 22px;
-}
-
-.plan-information-grid {
-  gap: 12px;
-}
-
-.plan-information-grid > div:not(.plan-information-notes) {
-  padding: 12px;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
-.plan-information-notes {
-  padding: 14px;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
-.filters-section {
-  gap: 13px;
-  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.035);
-}
-
-.search-field input,
-.filter-field select,
-.reminder-filter-field select,
-.reminder-filter-field input,
-.form-group input,
-.form-group select,
-.form-group textarea {
-  min-height: 40px;
-  border-color: #cbd5e1;
-  border-radius: 7px;
-  font-family: inherit;
-  font-size: 14px;
-}
-
-.search-field input:focus,
-.filter-field select:focus,
-.reminder-filter-field select:focus,
-.reminder-filter-field input:focus,
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  outline: 3px solid rgba(37, 99, 235, 0.15);
-  border-color: #2563eb;
-}
-
-.form-section,
-.plan-import-section {
-  padding: 22px;
-  background: #fff;
-}
-
-.form-grid {
-  gap: 16px;
-}
-
-.form-group label,
-.search-field label,
-.filter-field label,
-.reminder-filter-field label {
-  color: #334155;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.save-button,
-.recharge-button {
-  padding: 10px 16px;
-}
-
-.plan-actions {
-  gap: 8px;
-}
-
-.history-table-container,
-.reminder-history-table-container {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-}
-
-.history-table {
-  margin: 0;
-}
-
-.history-table th,
-.history-table td {
-  padding: 11px 13px;
-}
-
-.history-table th {
-  background: #f8fafc;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.history-table td {
-  font-size: 13px;
-}
-
-.calendar-section {
-  padding: 20px;
-}
-
-.calendar-section-header h2 {
-  font-size: 21px;
-}
-
-.calendar-day {
-  min-height: 116px;
-}
-
-.calendar-event {
-  border-radius: 4px;
-}
-
-.notification-card {
-  border-radius: 9px;
-  box-shadow: none;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-}
-
-.notification-card:hover {
-  transform: none;
-  background: #f8fafc;
-  box-shadow: none;
-}
-
-.service-summary-card,
-.expense-summary-card,
-.renewal-card {
-  padding: 17px;
-}
-
-.renewal-card-header {
-  margin-bottom: 12px;
-}
-
-@media (max-width: 900px) {
-  .header {
-    padding-right: 24px;
-    padding-left: 24px;
-  }
-
-  .container {
-    padding-top: 22px;
-  }
-}
-
-@media (max-width: 650px) {
-  .header {
-    align-items: stretch;
-    gap: 14px;
-    padding: 18px;
-  }
-
-  .header > div,
-  .header > button {
-    width: 100%;
-  }
-
-  .container {
-    padding: 16px 14px 32px;
-  }
-
-  .summary {
-    gap: 10px;
-    margin-bottom: 20px;
-  }
-
-  .summary-card {
-    min-height: 94px;
-    padding: 14px;
-  }
-
-  .summary-card h3 {
-    min-height: 0;
-    margin-bottom: 5px;
-  }
-
-  .summary-card p {
-    font-size: 25px;
-  }
-
-  .quick-actions-section,
-  .notifications-section,
-  .calendar-section,
-  .reminder-history-section,
-  .filters-section,
-  .form-section,
-  .plan-details-view {
-    padding: 16px;
-  }
-
-  .quick-actions-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .quick-action-button {
-    min-width: 0;
-    padding: 9px 8px;
-    font-size: 12px;
-  }
-
-  .plans-grid {
-    gap: 12px;
-  }
-
-  .plan-card {
-    padding: 16px;
-  }
-
-  .plan-header {
-    gap: 8px;
-    margin-bottom: 15px;
-  }
-
-  .plan-header h3 {
-    font-size: 17px;
-  }
-
-  .status {
-    padding: 5px 8px;
-    font-size: 11px;
-  }
-
-  .calendar-day {
-    min-height: 100px;
-  }
-}
-
-/* Quick Actions: neutral admin controls with one primary action */
-.quick-actions-grid {
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  align-items: stretch;
-  gap: 10px;
-}
-
-.quick-actions-section h2 {
-  margin-bottom: 14px;
-  color: #0f172a;
-  font-size: 18px;
-  font-weight: 650;
 }
 
 .quick-action-button {
@@ -2361,24 +1766,15 @@ body {
   border-radius: 8px;
   background: #fff;
   color: #334155;
-  box-shadow: none;
-  font-family: inherit;
+  font: inherit;
   font-size: 14px;
   font-weight: 600;
-  line-height: 1.25;
-  text-align: center;
-  white-space: normal;
-  transition: background-color 0.15s ease, border-color 0.15s ease,
-    color 0.15s ease, transform 0.15s ease;
+  cursor: pointer;
 }
 
-.quick-action-button:not(.quick-action-add):hover:not(:disabled) {
-  transform: translateY(-1px);
+.quick-action-button:hover:not(:disabled) {
   border-color: #94a3b8;
   background: #f8fafc;
-  color: #0f172a;
-  filter: none;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .quick-action-add {
@@ -2388,33 +1784,384 @@ body {
 }
 
 .quick-action-add:hover:not(:disabled) {
-  transform: translateY(-1px);
   border-color: #1d4ed8;
   background: #1d4ed8;
-  color: #fff;
-  filter: none;
-  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.18);
 }
 
-.quick-action-button:focus-visible {
-  outline: 3px solid rgba(37, 99, 235, 0.2);
+.quick-action-button:focus-visible,
+.notification-card:focus-visible {
+  outline: 3px solid #93c5fd;
   outline-offset: 2px;
 }
 
 .quick-action-button:disabled {
-  transform: none;
-  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.reminder-bell-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid rgba(203, 213, 225, 0.6);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.reminder-bell-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.reminder-bell-button:focus-visible,
+.reminder-toast-dismiss:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.reminder-bell-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.reminder-bell-count {
+  display: inline-grid;
+  min-width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #b91c1c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.reminder-toast-stack {
+  position: fixed;
+  z-index: 1100;
+  top: 90px;
+  right: 18px;
+  display: grid;
+  width: min(370px, calc(100vw - 36px));
+  gap: 10px;
+}
+
+.reminder-toast {
+  padding: 14px 16px;
+  border: 1px solid #fecaca;
+  border-left: 4px solid #dc2626;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  color: #1f2937;
+}
+
+.reminder-toast-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #991b1b;
+}
+
+.reminder-toast p {
+  margin: 8px 0 4px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.reminder-toast > span {
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.reminder-toast-dismiss {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #4b5563;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.reminder-toast-dismiss:hover {
+  background: #fee2e2;
+}
+
+.authenticated-username {
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
+.logout-button {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.logout-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.logout-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.header-auth-error {
+  margin: 12px auto 0;
+  max-width: 1320px;
+  padding: 10px 16px;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.auth-screen {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: #f4f6f8;
+}
+
+.auth-panel {
+  width: min(100%, 420px);
+  padding: 34px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.09);
+}
+
+.offline-panel {
+  border-top: 4px solid #b91c1c;
+}
+
+.offline-panel .login-submit-button {
+  width: 100%;
+}
+
+.auth-panel h1 {
+  margin: 0;
+  color: #111827;
+  font-size: 27px;
+  letter-spacing: -0.02em;
+}
+
+.auth-eyebrow {
+  margin: 0 0 8px;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.auth-description,
+.auth-panel > p:not(.auth-eyebrow) {
+  margin: 8px 0 22px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.login-form label {
+  margin-top: 5px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.login-form input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #111827;
+  font: inherit;
+}
+
+.login-form input:focus {
+  outline: 3px solid rgba(37, 99, 235, 0.16);
+  border-color: #2563eb;
+}
+
+.login-submit-button {
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.login-submit-button:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.login-submit-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.auth-error {
+  margin: 5px 0 0;
+  color: #b91c1c;
+  font-size: 13px;
 }
 
 @media (max-width: 650px) {
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .reminder-toast-stack {
+    top: 16px;
+    right: 12px;
+    width: calc(100vw - 24px);
+  }
+
+  .auth-panel {
+    padding: 26px 22px;
+  }
+}
+
+.notification-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.notification-card {
+  display: block;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-left: 4px solid #f97316;
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notification-card:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.notification-card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.notification-card-heading h3,
+.notification-card-heading p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.notification-card-heading h3 {
+  color: #111827;
+  font-size: 16px;
+}
+
+.notification-card-heading p {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.notification-card-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.notification-card-details span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.notification-card-details strong {
+  color: #1f2937;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 650px) {
+  .quick-actions-section,
+  .notifications-section {
+    padding: 18px;
+  }
+
   .quick-actions-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .quick-action-button {
-    width: 100%;
     min-width: 0;
     padding: 9px 8px;
-    font-size: 13px;
+    font-size: 12px;
+  }
+
+  .notification-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-card-heading {
+    flex-wrap: wrap;
+  }
+
+  .notification-card-details {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
+const apiUrl = (path) => `${API_BASE_URL}${path}`;
+
 const PLAN_CSV_COLUMNS = [
   "Service",
   "Plan Name",
@@ -90,11 +93,33 @@ const getLocalDateKey = (date) => (
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
 );
 
+const getReminderKey = (reminder) => (
+  reminder.id !== undefined && reminder.id !== null
+    ? `id:${reminder.id}`
+    : [reminder.plan_id, reminder.reminder_type, reminder.expiry_date, reminder.created_at]
+      .map((value) => String(value ?? ""))
+      .join("|")
+);
+
 function App() {
+  const [authStatus, setAuthStatus] = useState("checking");
+  const [serverUnavailable, setServerUnavailable] = useState(false);
+  const [authUsername, setAuthUsername] = useState("");
+  const [csrfToken, setCsrfToken] = useState("");
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const csrfTokenRef = useRef("");
+  const seenReminderKeysRef = useRef(null);
+  const reminderToastTimersRef = useRef(new Map());
+
   const [plans, setPlans] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [remindersLoading, setRemindersLoading] = useState(true);
   const [remindersError, setRemindersError] = useState("");
+  const [reminderToasts, setReminderToasts] = useState([]);
   const [reminderServiceFilter, setReminderServiceFilter] = useState("");
   const [reminderTypeFilter, setReminderTypeFilter] = useState("");
   const [reminderSearchText, setReminderSearchText] = useState("");
@@ -125,6 +150,49 @@ function App() {
   const importFileInputRef = useRef(null);
   const restoreFileInputRef = useRef(null);
 
+  const clearReminderToasts = useCallback(() => {
+    reminderToastTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    reminderToastTimersRef.current.clear();
+    seenReminderKeysRef.current = null;
+    setReminderToasts([]);
+  }, []);
+
+  const clearPrivateAppData = useCallback(() => {
+    setAuthUsername("");
+    setLoginPassword("");
+    setCsrfToken("");
+    csrfTokenRef.current = "";
+    setPlans([]);
+    setReminders([]);
+    setRemindersLoading(false);
+    setRemindersError("");
+    setSelectedPlanId(null);
+    setSelectedRenewal(null);
+    setHistoryPlan(null);
+    setRechargeHistory([]);
+    setRechargeHistoryLoading(false);
+    setRechargePlan(null);
+    setFormData({
+      service: "",
+      plan_name: "",
+      category: "",
+      recharge_date: "",
+      expiry_date: "",
+      frequency: "",
+      amount: "",
+      notes: "",
+    });
+    setRechargeData({ recharge_date: "", expiry_date: "", amount: "", notes: "" });
+    setShowForm(false);
+    setEditPlan(null);
+    setShowImportPreview(false);
+    setImportPreview([]);
+    setRestoreFile(null);
+    setRestoreMessage("");
+    setRestoreError("");
+    clearReminderToasts();
+  }, [clearReminderToasts]);
+
   const [rechargePlan, setRechargePlan] = useState(null);
 
   const [historyPlan, setHistoryPlan] = useState(null);
@@ -148,6 +216,74 @@ const [rechargeData, setRechargeData] = useState({
     amount: "",
     notes: "",
   });
+
+  const apiFetch = useCallback(async (path, options = {}) => {
+    const method = (options.method || "GET").toUpperCase();
+    const headers = new Headers(options.headers || {});
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(method) && csrfTokenRef.current) {
+      headers.set("X-CSRF-Token", csrfTokenRef.current);
+    }
+
+    let response;
+    try {
+      response = await fetch(apiUrl(path), {
+        ...options,
+        headers,
+        credentials: "include",
+      });
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        setServerUnavailable(true);
+        clearPrivateAppData();
+      }
+      throw error;
+    }
+
+    if (response.status >= 500) {
+      setServerUnavailable(true);
+      clearPrivateAppData();
+    } else {
+      setServerUnavailable(false);
+    }
+
+    if (response.status === 401 && !["/login", "/auth/me", "/auth/csrf"].includes(path)) {
+      setAuthStatus("unauthenticated");
+      setAuthUsername("");
+      setPlans([]);
+      setReminders([]);
+      clearReminderToasts();
+      setSelectedPlanId(null);
+      setSelectedRenewal(null);
+      setHistoryPlan(null);
+      setRechargeHistory([]);
+      setRechargePlan(null);
+      fetch(apiUrl("/auth/csrf"), { credentials: "include" })
+        .then((csrfResponse) => csrfResponse.ok ? csrfResponse.json() : null)
+        .then((data) => {
+          if (data?.csrf_token) {
+            csrfTokenRef.current = data.csrf_token;
+            setCsrfToken(data.csrf_token);
+          }
+        })
+        .catch(() => {});
+    }
+
+    return response;
+  }, [
+    setAuthStatus,
+    setAuthUsername,
+    setCsrfToken,
+    setHistoryPlan,
+    setPlans,
+    setRechargeHistory,
+    setRechargePlan,
+    setReminders,
+    setSelectedPlanId,
+    setSelectedRenewal,
+    clearReminderToasts,
+    clearPrivateAppData,
+    setServerUnavailable,
+  ]);
 
   const reminderServices = [...new Set(
     reminders.map((reminder) => reminder.service).filter(Boolean)
@@ -546,7 +682,7 @@ const [rechargeData, setRechargeData] = useState({
 
     for (const row of validRows) {
       try {
-        const response = await fetch("http://127.0.0.1:5000/plans", {
+        const response = await apiFetch("/plans", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -601,7 +737,7 @@ const [rechargeData, setRechargeData] = useState({
     setIsBackingUp(true);
 
     try {
-      const response = await fetch("http://127.0.0.1:5000/backup/database");
+      const response = await apiFetch("/backup/database");
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || "Unable to download database backup.");
@@ -656,7 +792,7 @@ const [rechargeData, setRechargeData] = useState({
     try {
       const formData = new FormData();
       formData.append("database", restoreFile);
-      const response = await fetch("http://127.0.0.1:5000/restore/database", {
+      const response = await apiFetch("/restore/database", {
         method: "POST",
         body: formData,
       });
@@ -692,7 +828,8 @@ const [rechargeData, setRechargeData] = useState({
 
   const fetchPlans = useCallback(async () => {
     try {
-      const response = await fetch("http://127.0.0.1:5000/plans");
+      const response = await apiFetch("/plans");
+      if (!response.ok) throw new Error("Failed to load plans.");
 
       const data = await response.json();
 
@@ -702,38 +839,265 @@ const [rechargeData, setRechargeData] = useState({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apiFetch]);
 
-  const fetchReminders = useCallback(async () => {
-    setRemindersLoading(true);
+  const fetchReminders = useCallback(async (options = {}) => {
+    const isBackgroundRefresh = options.background === true;
+    const { signal } = options;
+    if (signal?.aborted) return;
+
+    if (!isBackgroundRefresh) setRemindersLoading(true);
     setRemindersError("");
 
     try {
-      const response = await fetch("http://127.0.0.1:5000/reminders");
+      const response = await apiFetch("/reminders", { signal });
       if (!response.ok) {
         throw new Error("Failed to load reminder history");
       }
 
       const data = await response.json();
-      setReminders(Array.isArray(data) ? data : []);
+      if (signal?.aborted) return;
+
+      const loadedReminders = Array.isArray(data) ? data : [];
+      const seenKeys = seenReminderKeysRef.current;
+      if (seenKeys === null) {
+        // Existing records form the baseline; only later arrivals trigger popups.
+        seenReminderKeysRef.current = new Set(loadedReminders.map(getReminderKey));
+      } else {
+        const newlyObserved = loadedReminders.filter((reminder) => {
+          const reminderKey = getReminderKey(reminder);
+          if (seenKeys.has(reminderKey)) return false;
+          seenKeys.add(reminderKey);
+          return true;
+        });
+
+        newlyObserved.forEach((reminder) => {
+          const reminderKey = getReminderKey(reminder);
+          setReminderToasts((currentToasts) => [
+            ...currentToasts.slice(-3),
+            { ...reminder, notificationKey: reminderKey },
+          ]);
+          const timerId = window.setTimeout(() => {
+            setReminderToasts((currentToasts) => (
+              currentToasts.filter((toast) => toast.notificationKey !== reminderKey)
+            ));
+            reminderToastTimersRef.current.delete(reminderKey);
+          }, 8000);
+          reminderToastTimersRef.current.set(reminderKey, timerId);
+        });
+      }
+
+      setReminders(loadedReminders);
     } catch (error) {
+      if (signal?.aborted) return;
       console.error("Reminder history error:", error);
       setRemindersError("Unable to load reminder history.");
     } finally {
-      setRemindersLoading(false);
+      if (!signal?.aborted && !isBackgroundRefresh) setRemindersLoading(false);
     }
-  }, []);
+  }, [apiFetch]);
 
   useEffect(() => {
+    const handleOffline = () => {
+      setServerUnavailable(true);
+      clearPrivateAppData();
+    };
+
+    window.addEventListener("offline", handleOffline);
+    if (!navigator.onLine) handleOffline();
+
+    return () => window.removeEventListener("offline", handleOffline);
+  }, [clearPrivateAppData]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    const initializeAuthentication = async () => {
+      try {
+        const csrfResponse = await fetch(apiUrl("/auth/csrf"), {
+          credentials: "include",
+        });
+        if (!csrfResponse.ok) {
+          if (csrfResponse.status >= 500) {
+            setServerUnavailable(true);
+            clearPrivateAppData();
+          }
+          throw new Error("Unable to initialize secure login.");
+        }
+        const csrfData = await csrfResponse.json();
+        if (csrfData.csrf_token && isCurrent) {
+          csrfTokenRef.current = csrfData.csrf_token;
+          setCsrfToken(csrfData.csrf_token);
+        }
+
+        const authResponse = await fetch(apiUrl("/auth/me"), {
+          credentials: "include",
+        });
+        if (!authResponse.ok) {
+          if (authResponse.status >= 500) {
+            setServerUnavailable(true);
+            clearPrivateAppData();
+          }
+          throw new Error("Unable to check the current session.");
+        }
+        const authData = await authResponse.json();
+        if (!isCurrent) return;
+        setServerUnavailable(false);
+
+        if (authData.authenticated) {
+          setAuthUsername(authData.username || "");
+          setAuthStatus("authenticated");
+          setAuthError("");
+        } else {
+          setAuthStatus("unauthenticated");
+        }
+      } catch (error) {
+        if (!isCurrent) return;
+        setAuthStatus("unauthenticated");
+        if (error instanceof TypeError) {
+          setServerUnavailable(true);
+          clearPrivateAppData();
+        }
+        setAuthError("Unable to connect securely to RLEMS. Check the backend and try again.");
+      }
+    };
+
+    initializeAuthentication();
+    return () => {
+      isCurrent = false;
+    };
+  }, [clearPrivateAppData]);
+
+  const handleLogin = async (event) => {
+    event.preventDefault();
+    if (isLoggingIn) return;
+
+    setIsLoggingIn(true);
+    setAuthError("");
+    try {
+      let currentCsrfToken = csrfTokenRef.current;
+      if (!currentCsrfToken) {
+        const csrfResponse = await fetch(apiUrl("/auth/csrf"), {
+          credentials: "include",
+        });
+        const csrfData = await csrfResponse.json().catch(() => ({}));
+        if (!csrfResponse.ok || !csrfData.csrf_token) {
+          throw new Error("Unable to initialize secure login. Refresh and try again.");
+        }
+        currentCsrfToken = csrfData.csrf_token;
+        csrfTokenRef.current = currentCsrfToken;
+        setCsrfToken(currentCsrfToken);
+      }
+
+      const response = await fetch(apiUrl("/login"), {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": currentCsrfToken,
+        },
+        body: JSON.stringify({ username: loginUsername, password: loginPassword }),
+      });
+      if (response.status >= 500) {
+        setServerUnavailable(true);
+        clearPrivateAppData();
+      }
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.authenticated) {
+        throw new Error(result.error || "Unable to sign in.");
+      }
+
+      setServerUnavailable(false);
+      csrfTokenRef.current = result.csrf_token || "";
+      setCsrfToken(csrfTokenRef.current);
+      setAuthUsername(result.username || loginUsername);
+      setLoginPassword("");
+      setAuthStatus("authenticated");
+      setAuthError("");
+    } catch (error) {
+      setLoginPassword("");
+      if (error instanceof TypeError) {
+        setServerUnavailable(true);
+        clearPrivateAppData();
+      }
+      setAuthError(error.message || "Unable to sign in.");
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    setAuthError("");
+    try {
+      const response = await apiFetch("/logout", { method: "POST" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Unable to sign out.");
+
+      csrfTokenRef.current = result.csrf_token || "";
+      setCsrfToken(csrfTokenRef.current);
+      setAuthUsername("");
+      setAuthStatus("unauthenticated");
+      setLoginPassword("");
+      setPlans([]);
+      setReminders([]);
+      setSelectedPlanId(null);
+      setSelectedRenewal(null);
+      setHistoryPlan(null);
+      setRechargeHistory([]);
+      setRechargePlan(null);
+      setShowForm(false);
+      setEditPlan(null);
+      setShowImportPreview(false);
+      setImportPreview([]);
+      setRestoreFile(null);
+      setAuthError("");
+    } catch (error) {
+      setAuthError(error.message || "Unable to sign out.");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") return undefined;
     fetchPlans();
     const refreshIntervalId = window.setInterval(fetchPlans, 5 * 60 * 1000);
 
     return () => window.clearInterval(refreshIntervalId);
-  }, [fetchPlans]);
+  }, [authStatus, fetchPlans]);
 
   useEffect(() => {
-    fetchReminders();
-  }, [fetchReminders]);
+    if (authStatus !== "authenticated") {
+      clearReminderToasts();
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    let refreshTimeoutId;
+    let isInitialLoad = true;
+    const refreshReminders = async () => {
+      await fetchReminders({
+        background: !isInitialLoad,
+        signal: controller.signal,
+      });
+      isInitialLoad = false;
+      if (!controller.signal.aborted) {
+        refreshTimeoutId = window.setTimeout(refreshReminders, 60 * 1000);
+      }
+    };
+
+    refreshReminders();
+    return () => {
+      controller.abort();
+      window.clearTimeout(refreshTimeoutId);
+    };
+  }, [authStatus, clearReminderToasts, fetchReminders]);
+
+  useEffect(() => () => {
+    reminderToastTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    reminderToastTimersRef.current.clear();
+  }, []);
 
   useEffect(() => {
     if (!selectedRenewal) return undefined;
@@ -792,12 +1156,12 @@ const [rechargeData, setRechargeData] = useState({
 
   try {
     const url = editPlan
-      ? `http://127.0.0.1:5000/plans/${editPlan.id}`
-      : "http://127.0.0.1:5000/plans";
+      ? `/plans/${editPlan.id}`
+      : "/plans";
 
     const method = editPlan ? "PUT" : "POST";
 
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       method: method,
       headers: {
         "Content-Type": "application/json",
@@ -868,8 +1232,8 @@ const handleDelete = async (plan) => {
   }
 
   try {
-    const response = await fetch(
-      `http://127.0.0.1:5000/plans/${plan.id}`,
+    const response = await apiFetch(
+      `/plans/${plan.id}`,
       {
         method: "DELETE",
       }
@@ -921,8 +1285,8 @@ const handleRechargeSubmit = async (event) => {
   }
 
   try {
-    const response = await fetch(
-      `http://127.0.0.1:5000/plans/${rechargePlan.id}/recharge`,
+    const response = await apiFetch(
+      `/plans/${rechargePlan.id}/recharge`,
       {
         method: "POST",
         headers: {
@@ -958,8 +1322,8 @@ const handleRechargeSubmit = async (event) => {
 const loadRechargeHistory = async (plan) => {
   setRechargeHistoryLoading(true);
   try {
-    const response = await fetch(
-      `http://127.0.0.1:5000/plans/${plan.id}/history`
+    const response = await apiFetch(
+      `/plans/${plan.id}/history`
     );
 
     const data = await response.json();
@@ -1018,6 +1382,76 @@ const openAddPlanFromQuickActions = () => {
   requestAnimationFrame(() => scrollToDashboardSection("add-plan-form"));
 };
 
+  if (serverUnavailable) {
+    return (
+      <main className="auth-screen">
+        <section className="auth-panel offline-panel" aria-labelledby="offline-title">
+          <p className="auth-eyebrow">Local server connection</p>
+          <h1 id="offline-title">RLEMS is unavailable</h1>
+          <p className="auth-description">
+            Connect to the PC server on the same network and try again. Plan and reminder data is not available offline.
+          </p>
+          <button
+            type="button"
+            className="login-submit-button"
+            onClick={() => window.location.reload()}
+          >
+            Retry connection
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  if (authStatus === "checking") {
+    return (
+      <main className="auth-screen">
+        <section className="auth-panel" aria-live="polite">
+          <h1>RLEMS</h1>
+          <p>Checking your secure session...</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (authStatus !== "authenticated") {
+    return (
+      <main className="auth-screen">
+        <section className="auth-panel" aria-labelledby="login-title">
+          <p className="auth-eyebrow">Recharge &amp; License Management</p>
+          <h1 id="login-title">Sign in to RLEMS</h1>
+          <p className="auth-description">Enter your administrator credentials to continue.</p>
+          <form className="login-form" onSubmit={handleLogin}>
+            <label htmlFor="login-username">Username</label>
+            <input
+              id="login-username"
+              name="username"
+              type="text"
+              autoComplete="username"
+              value={loginUsername}
+              onChange={(event) => setLoginUsername(event.target.value)}
+              required
+            />
+            <label htmlFor="login-password">Password</label>
+            <input
+              id="login-password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              value={loginPassword}
+              onChange={(event) => setLoginPassword(event.target.value)}
+              required
+            />
+            {authError && <p className="auth-error" role="alert">{authError}</p>}
+            <button type="submit" className="login-submit-button" disabled={isLoggingIn || !csrfToken}>
+              {isLoggingIn ? "Signing in..." : "Sign In"}
+            </button>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <div className="app">
 
@@ -1029,14 +1463,83 @@ const openAddPlanFromQuickActions = () => {
           <p>Recharge & License Expiry Management System</p>
         </div>
 
-        <button
-          className="add-button"
-          onClick={() => setShowForm(!showForm)}
-        >
-          {showForm ? "Close" : "+ Add Plan"}
-        </button>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="reminder-bell-button"
+            onClick={() => scrollToDashboardSection("reminder-history-section")}
+            aria-label={`Open reminder history, ${reminders.length} reminder records`}
+            title="Open reminder history"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+            </svg>
+            <span>Reminders</span>
+            <span className="reminder-bell-count" aria-hidden="true">
+              {reminders.length > 99 ? "99+" : reminders.length}
+            </span>
+          </button>
+          <span className="authenticated-username">{authUsername}</span>
+          <button
+            type="button"
+            className="logout-button"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+          >
+            {isLoggingOut ? "Signing out..." : "Logout"}
+          </button>
+          <button
+            type="button"
+            className="add-button"
+            onClick={() => setShowForm(!showForm)}
+          >
+            {showForm ? "Close" : "+ Add Plan"}
+          </button>
+        </div>
       </header>
 
+      {authError && (
+        <p className="header-auth-error" role="alert">{authError}</p>
+      )}
+
+      {reminderToasts.length > 0 && (
+        <div className="reminder-toast-stack" aria-label="New reminder notifications" aria-live="polite">
+          {reminderToasts.map((reminder) => (
+            <article
+              className="reminder-toast"
+              key={reminder.notificationKey}
+              role="status"
+            >
+              <div className="reminder-toast-heading">
+                <strong>New reminder</strong>
+                <button
+                  type="button"
+                  className="reminder-toast-dismiss"
+                  onClick={() => {
+                    const timerId = reminderToastTimersRef.current.get(reminder.notificationKey);
+                    if (timerId) window.clearTimeout(timerId);
+                    reminderToastTimersRef.current.delete(reminder.notificationKey);
+                    setReminderToasts((currentToasts) => currentToasts.filter(
+                      (toast) => toast.notificationKey !== reminder.notificationKey
+                    ));
+                  }}
+                  aria-label="Dismiss reminder notification"
+                >
+                  ×
+                </button>
+              </div>
+              <p>
+                {reminder.plan_name || `Plan ${reminder.plan_id ?? ""}`}
+                {reminder.service ? ` · ${reminder.service}` : ""}
+              </p>
+              <span>
+                {String(reminder.reminder_type || "Reminder").replaceAll("_", " ")}
+                {reminder.expiry_date ? ` · Expiry ${reminder.expiry_date}` : " · Expiry date not set"}
+              </span>
+            </article>
+          ))}
+        </div>
+      )}
 
       <main className="container">
         {historyPlan && !selectedPlan && (
