@@ -1,12 +1,15 @@
-const SHELL_CACHE = "rlems-app-shell-v1";
+const APP_BASE_URL = new URL("./", self.registration.scope);
+const APP_BASE_PATH = APP_BASE_URL.pathname;
+const SHELL_CACHE = "rlems-app-shell-v2";
+const INDEX_URL = new URL("index.html", APP_BASE_URL).href;
 const SHELL_FILES = [
-  "/manifest.webmanifest",
-  "/icons/rlems-192.png",
-  "/icons/rlems-512.png",
-  "/icons/rlems-192.svg",
-  "/icons/rlems-512.svg",
-  "/favicon.svg",
-];
+  "manifest.webmanifest",
+  "icons/rlems-192.png",
+  "icons/rlems-512.png",
+  "icons/rlems-192.svg",
+  "icons/rlems-512.svg",
+  "favicon.svg",
+].map((path) => new URL(path, APP_BASE_URL).href);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -14,17 +17,22 @@ self.addEventListener("install", (event) => {
       const cache = await caches.open(SHELL_CACHE);
       await cache.addAll(SHELL_FILES);
 
-      // Precache only the static JS/CSS files referenced by Vite's built index.
-      const indexResponse = await fetch("/index.html", { cache: "no-cache" });
+      // Cache only the public HTML shell and the hashed JS/CSS app assets.
+      const indexResponse = await fetch(INDEX_URL, { cache: "no-cache" });
       if (!indexResponse.ok || !indexResponse.headers.get("content-type")?.includes("text/html")) {
         throw new Error("Unable to load the static app shell for offline startup.");
       }
-      const indexForParsing = await indexResponse.clone().text();
-      await cache.put("/index.html", indexResponse);
 
-      const assets = [...indexForParsing.matchAll(/(?:src|href)=["']([^"']+)["']/g)]
-        .map((match) => match[1])
-        .filter((path) => path.startsWith("/assets/") && /\.(js|css)$/i.test(path));
+      const indexText = await indexResponse.clone().text();
+      await cache.put(INDEX_URL, indexResponse);
+      const assets = [...indexText.matchAll(/(?:src|href)=["']([^"']+)['"]/g)]
+        .map((match) => new URL(match[1], INDEX_URL))
+        .filter((url) => (
+          url.origin === APP_BASE_URL.origin &&
+          url.pathname.startsWith(`${APP_BASE_PATH}assets/`) &&
+          /\.(js|css)$/i.test(url.pathname)
+        ))
+        .map((url) => url.href);
       await cache.addAll(assets);
       await self.skipWaiting();
     })()
@@ -48,28 +56,18 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return;
-
-  // Keep all API and account traffic network-only, including any future route names.
-  if (/^\/(api|auth|login|logout|plans|reminders|backup|restore)(\/|$)/i.test(url.pathname)) {
-    return;
-  }
+  if (url.origin !== APP_BASE_URL.origin || !url.pathname.startsWith(APP_BASE_PATH)) return;
 
   if (request.mode === "navigate") {
-    if (url.pathname !== "/" && url.pathname !== "/index.html") return;
+    const isAppEntry = url.pathname === APP_BASE_PATH || url.pathname === INDEX_URL.pathname;
+    if (!isAppEntry) return;
+
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          if (response.ok && response.headers.get("content-type")?.includes("text/html")) {
-            const responseCopy = response.clone();
-            caches.open(SHELL_CACHE).then((cache) => cache.put("/index.html", responseCopy));
-          }
-          return response;
-        })
         .catch(async () => {
           const cache = await caches.open(SHELL_CACHE);
-          return cache.match("/index.html") || new Response(
-            "RLEMS is unavailable offline. Connect to the local server and retry.",
+          return cache.match(INDEX_URL) || new Response(
+            "RLEMS is unavailable offline. Connect to the server and retry.",
             {
               status: 503,
               headers: { "Content-Type": "text/plain; charset=utf-8" },
@@ -80,19 +78,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  const isStaticAppAsset = (
-    url.pathname.startsWith("/assets/") &&
-    (request.destination === "script" || request.destination === "style")
-  ) || [
-    "/manifest.webmanifest",
-    "/icons/rlems-192.png",
-    "/icons/rlems-512.png",
-    "/icons/rlems-192.svg",
-    "/icons/rlems-512.svg",
-    "/favicon.svg",
-  ].includes(url.pathname);
+  // API/account requests are deliberately never intercepted or cached.
+  if (/^\/(api|auth|login|logout|plans|reminders|backup|restore)(\/|$)/i.test(url.pathname)) return;
 
-  if (!isStaticAppAsset) return;
+  const isHashedAppAsset = (
+    url.pathname.startsWith(`${APP_BASE_PATH}assets/`) &&
+    (request.destination === "script" || request.destination === "style")
+  );
+  const isPublicShellFile = SHELL_FILES.includes(url.href);
+  if (!isHashedAppAsset && !isPublicShellFile) return;
 
   event.respondWith(
     caches.open(SHELL_CACHE).then((cache) => cache.match(request)).then((cachedResponse) => {

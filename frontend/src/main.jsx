@@ -11,7 +11,8 @@ createRoot(document.getElementById("root")).render(
 
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/service-worker.js", { scope: "/" })
+    const basePath = import.meta.env.BASE_URL;
+    navigator.serviceWorker.register(`${basePath}service-worker.js`, { scope: basePath })
       .catch(() => {
         console.warn("RLEMS offline app-shell registration was unavailable.");
       });

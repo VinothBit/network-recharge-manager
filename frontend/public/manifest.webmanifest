@@ -1,10 +1,10 @@
 {
-  "id": "/",
+  "id": "./",
   "name": "RLEMS — Recharge & License Expiry Management System",
   "short_name": "RLEMS",
   "description": "Manage plans, renewals, and reminder history.",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "display_override": ["standalone"],
   "orientation": "any",
@@ -12,19 +12,19 @@
   "background_color": "#f4f6f8",
   "icons": [
     {
-      "src": "/icons/rlems-192.png",
+      "src": "icons/rlems-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/rlems-512.png",
+      "src": "icons/rlems-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/rlems-512.svg",
+      "src": "icons/rlems-512.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

@@ -78,6 +78,21 @@ Backups and the SQLite file are not served as static assets. The download and re
 
 Never log request bodies for `/login` or dump the process environment into logs. Do not print passwords, the Flask secret, or the Redis URL.
 
+## GitHub Pages frontend (project site)
+
+GitHub Pages can publish only the static React/Vite frontend. It does not run Flask, SQLite, or the reminder scheduler. The Flask API and its persistent SQLite storage must be deployed separately on a reachable HTTPS host. The application data and backup/restore endpoints must remain on that backend; do not put database files or secrets in `frontend/public` or the Pages artifact.
+
+The Vite build uses the project-site base path `/network-recharge-manager/`. The manifest, icons, and service worker are base-path aware. The service worker caches only the public HTML/app-shell assets and hashed JavaScript/CSS; API and account requests remain network-only. Offline mode therefore does not expose plans, sessions, CSRF tokens, or reminder history, and the app reports that the server is unavailable.
+
+To enable the automated Pages workflow:
+
+1. In repository **Settings → Pages**, set the publishing source to **GitHub Actions**.
+2. In **Settings → Secrets and variables → Actions → Variables**, add `VITE_API_BASE_URL` with the real HTTPS Flask API base URL (for example, the origin/path actually configured on your backend). The build intentionally fails if this variable is absent or does not start with `https://`; `/api` is only the local development proxy and is not a backend for GitHub Pages. This URL is public frontend configuration, not a secret. Never put credentials or tokens in a `VITE_*` variable.
+3. Configure the Flask backend CORS allowlist with the exact frontend **origin** `https://vinothbit.github.io` (the repository path is not part of the origin). Keep credentialed CORS restricted to that origin. Since the GitHub Pages and a separately hosted API are generally cross-site, session cookies need HTTPS and `SameSite=None`; browsers or privacy settings may block third-party cookies. A same-site custom domain/reverse proxy is more reliable for session authentication.
+4. Push to `master` to build and deploy `frontend/dist`. The workflow deploys only that directory, not the backend, database, environment files, or backups.
+
+GitHub Pages sites are publicly accessible by default, even when the source repository is private where the account plan permits Pages. A public Pages site is not suitable as the access-control boundary for an internal application; keep backend authentication enabled. GitHub Free supports Pages for public repositories; private-repository Pages requires an eligible paid plan (Pro, Team, or Enterprise). Confirm the repository visibility and account/organization plan before enabling publication. Making the repository public also publishes its source, so first review the Git publication checklist and ensure no private data is tracked.
+
 ## Local development
 
 Local development keeps the default database path at `backend/recharge_manager.db`, allows the localhost Vite origins, and uses in-memory rate-limit storage. Start Flask from `backend/` with `python app.py`; run `python scheduler_service.py` in a second terminal if local scheduled reminders are needed. The production WSGI command is never replaced by Flask's development server.
