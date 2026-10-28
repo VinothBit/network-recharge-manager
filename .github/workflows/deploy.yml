@@ -31,19 +31,19 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Validate API URL and build frontend
+      - name: Validate optional API URL and build frontend
         working-directory: frontend
         env:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
         run: |
           if [ -z "$VITE_API_BASE_URL" ]; then
-            echo "::error::Set the repository Actions variable VITE_API_BASE_URL to the real HTTPS Flask API base URL."
-            exit 1
+            echo "::notice::No backend URL configured; building the frontend-only disabled-backend preview."
+          else
+            node -e 'try { const url = new URL(process.env.VITE_API_BASE_URL); if (url.protocol !== "https:" || !url.hostname || url.username || url.password || url.search || url.hash) process.exit(1); } catch { process.exit(1); }' || {
+              echo "::error::VITE_API_BASE_URL must be a valid HTTPS URL without credentials or query parameters."
+              exit 1
+            }
           fi
-          case "$VITE_API_BASE_URL" in
-            https://*) ;;
-            *) echo "::error::VITE_API_BASE_URL must use HTTPS."; exit 1 ;;
-          esac
           npm run build
 
       - name: Upload Pages artifact

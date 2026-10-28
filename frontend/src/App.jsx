@@ -1,7 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
+const CONFIGURED_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
+const API_BASE_URL = (CONFIGURED_API_BASE_URL || (import.meta.env.DEV ? "/api" : "")).replace(/\/$/, "");
+const HAS_SECURE_PRODUCTION_API = (() => {
+  try {
+    const backendUrl = new URL(CONFIGURED_API_BASE_URL);
+    return backendUrl.protocol === "https:"
+      && Boolean(backendUrl.hostname)
+      && !backendUrl.username
+      && !backendUrl.password
+      && !backendUrl.search
+      && !backendUrl.hash;
+  } catch {
+    return false;
+  }
+})();
+const BACKEND_CONFIGURED = import.meta.env.DEV || HAS_SECURE_PRODUCTION_API;
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
 
 const PLAN_CSV_COLUMNS = [
@@ -102,7 +117,7 @@ const getReminderKey = (reminder) => (
 );
 
 function App() {
-  const [authStatus, setAuthStatus] = useState("checking");
+  const [authStatus, setAuthStatus] = useState(BACKEND_CONFIGURED ? "checking" : "unauthenticated");
   const [serverUnavailable, setServerUnavailable] = useState(false);
   const [authUsername, setAuthUsername] = useState("");
   const [csrfToken, setCsrfToken] = useState("");
@@ -218,6 +233,10 @@ const [rechargeData, setRechargeData] = useState({
   });
 
   const apiFetch = useCallback(async (path, options = {}) => {
+    if (!BACKEND_CONFIGURED) {
+      throw new Error("The Flask backend is not configured for this build.");
+    }
+
     const method = (options.method || "GET").toUpperCase();
     const headers = new Headers(options.headers || {});
     if (["POST", "PUT", "PATCH", "DELETE"].includes(method) && csrfTokenRef.current) {
@@ -910,6 +929,8 @@ const [rechargeData, setRechargeData] = useState({
   }, [clearPrivateAppData]);
 
   useEffect(() => {
+    if (!BACKEND_CONFIGURED) return undefined;
+
     let isCurrent = true;
     const initializeAuthentication = async () => {
       try {
@@ -970,6 +991,10 @@ const [rechargeData, setRechargeData] = useState({
   const handleLogin = async (event) => {
     event.preventDefault();
     if (isLoggingIn) return;
+    if (!BACKEND_CONFIGURED) {
+      setAuthError("The Flask backend is not configured for this build.");
+      return;
+    }
 
     setIsLoggingIn(true);
     setAuthError("");
@@ -1381,6 +1406,25 @@ const openAddPlanFromQuickActions = () => {
   setShowForm(true);
   requestAnimationFrame(() => scrollToDashboardSection("add-plan-form"));
 };
+
+  if (!BACKEND_CONFIGURED) {
+    return (
+      <main className="auth-screen">
+        <section className="auth-panel backend-unconfigured-panel" aria-labelledby="backend-unconfigured-title">
+          <p className="auth-eyebrow">Frontend preview</p>
+          <h1 id="backend-unconfigured-title">RLEMS backend not configured</h1>
+          <div className="backend-unconfigured-notice" role="status">
+            <strong>This published build is frontend-only.</strong>
+            <p>
+              Sign-in and all data features, including plans, recharges, reminders, and database backup/restore,
+              are unavailable until the app is rebuilt with <code>VITE_API_BASE_URL</code> set to the real HTTPS Flask API.
+            </p>
+            <p>No application data is loaded or stored by this preview.</p>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   if (serverUnavailable) {
     return (
