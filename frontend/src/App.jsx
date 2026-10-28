@@ -132,7 +132,7 @@ function App() {
 
   const [plans, setPlans] = useState([]);
   const [reminders, setReminders] = useState([]);
-  const [remindersLoading, setRemindersLoading] = useState(true);
+  const [remindersLoading, setRemindersLoading] = useState(BACKEND_CONFIGURED);
   const [remindersError, setRemindersError] = useState("");
   const [reminderToasts, setReminderToasts] = useState([]);
   const [reminderServiceFilter, setReminderServiceFilter] = useState("");
@@ -147,7 +147,7 @@ function App() {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(BACKEND_CONFIGURED);
   const [showForm, setShowForm] = useState(false);
   const [editPlan, setEditPlan] = useState(null);
   const [showImportPreview, setShowImportPreview] = useState(false);
@@ -178,6 +178,7 @@ function App() {
     setCsrfToken("");
     csrfTokenRef.current = "";
     setPlans([]);
+    setLoading(false);
     setReminders([]);
     setRemindersLoading(false);
     setRemindersError("");
@@ -1407,47 +1408,9 @@ const openAddPlanFromQuickActions = () => {
   requestAnimationFrame(() => scrollToDashboardSection("add-plan-form"));
 };
 
-  if (!BACKEND_CONFIGURED) {
-    return (
-      <main className="auth-screen">
-        <section className="auth-panel backend-unconfigured-panel" aria-labelledby="backend-unconfigured-title">
-          <p className="auth-eyebrow">Frontend preview</p>
-          <h1 id="backend-unconfigured-title">RLEMS backend not configured</h1>
-          <div className="backend-unconfigured-notice" role="status">
-            <strong>This published build is frontend-only.</strong>
-            <p>
-              Sign-in and all data features, including plans, recharges, reminders, and database backup/restore,
-              are unavailable until the app is rebuilt with <code>VITE_API_BASE_URL</code> set to the real HTTPS Flask API.
-            </p>
-            <p>No application data is loaded or stored by this preview.</p>
-          </div>
-        </section>
-      </main>
-    );
-  }
+  const backendUnavailable = !BACKEND_CONFIGURED || serverUnavailable;
 
-  if (serverUnavailable) {
-    return (
-      <main className="auth-screen">
-        <section className="auth-panel offline-panel" aria-labelledby="offline-title">
-          <p className="auth-eyebrow">Local server connection</p>
-          <h1 id="offline-title">RLEMS is unavailable</h1>
-          <p className="auth-description">
-            Connect to the PC server on the same network and try again. Plan and reminder data is not available offline.
-          </p>
-          <button
-            type="button"
-            className="login-submit-button"
-            onClick={() => window.location.reload()}
-          >
-            Retry connection
-          </button>
-        </section>
-      </main>
-    );
-  }
-
-  if (authStatus === "checking") {
+  if (authStatus === "checking" && !backendUnavailable) {
     return (
       <main className="auth-screen">
         <section className="auth-panel" aria-live="polite">
@@ -1458,7 +1421,7 @@ const openAddPlanFromQuickActions = () => {
     );
   }
 
-  if (authStatus !== "authenticated") {
+  if (authStatus !== "authenticated" && !backendUnavailable) {
     return (
       <main className="auth-screen">
         <section className="auth-panel" aria-labelledby="login-title">
@@ -1508,39 +1471,50 @@ const openAddPlanFromQuickActions = () => {
         </div>
 
         <div className="header-actions">
-          <button
-            type="button"
-            className="reminder-bell-button"
-            onClick={() => scrollToDashboardSection("reminder-history-section")}
-            aria-label={`Open reminder history, ${reminders.length} reminder records`}
-            title="Open reminder history"
-          >
-            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
-              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
-            </svg>
-            <span>Reminders</span>
-            <span className="reminder-bell-count" aria-hidden="true">
-              {reminders.length > 99 ? "99+" : reminders.length}
-            </span>
-          </button>
-          <span className="authenticated-username">{authUsername}</span>
-          <button
-            type="button"
-            className="logout-button"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-          >
-            {isLoggingOut ? "Signing out..." : "Logout"}
-          </button>
+          {!backendUnavailable && (
+            <>
+              <button
+                type="button"
+                className="reminder-bell-button"
+                onClick={() => scrollToDashboardSection("reminder-history-section")}
+                aria-label={`Open reminder history, ${reminders.length} reminder records`}
+                title="Open reminder history"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+                </svg>
+                <span>Reminders</span>
+                <span className="reminder-bell-count" aria-hidden="true">
+                  {reminders.length > 99 ? "99+" : reminders.length}
+                </span>
+              </button>
+              <span className="authenticated-username">{authUsername}</span>
+              <button
+                type="button"
+                className="logout-button"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? "Signing out..." : "Logout"}
+              </button>
+            </>
+          )}
           <button
             type="button"
             className="add-button"
             onClick={() => setShowForm(!showForm)}
+            disabled={backendUnavailable}
           >
             {showForm ? "Close" : "+ Add Plan"}
           </button>
         </div>
       </header>
+
+      {backendUnavailable && (
+        <div className="backend-offline-banner" role="status">
+          Backend offline — data features unavailable
+        </div>
+      )}
 
       {authError && (
         <p className="header-auth-error" role="alert">{authError}</p>
